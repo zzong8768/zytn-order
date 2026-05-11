@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ZYTN 발주서</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
 
   :root {
     --bg: #0d0d0f;
@@ -794,6 +796,88 @@ let RECIPIENTS = [];           // 저장된 수취인 목록
 let _sharePoNum = '';          // 공유용 발주번호 캐시
 
 // ════════════════════════════════════════
+// 유틸리티 헬퍼
+// ════════════════════════════════════════
+
+/** localStorage 안전 저장 */
+function lsSave(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch (e) { showToast('⚠️ 저장 공간 부족. JSON 백업을 권장합니다.', 'error'); return false; }
+}
+
+/** localStorage 안전 로드 */
+function lsLoad(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch (e) { return fallback; }
+}
+
+/** html2canvas 공통 옵션 */
+const H2C_OPTS = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true };
+
+/**
+ * html2canvas로 발주서 캡처 후 dataURL 반환
+ * @param {HTMLElement} doc
+ * @returns {Promise<string>} dataURL
+ */
+function captureDoc(doc) {
+  const orig = doc.style.transform;
+  doc.style.transform = 'none';
+  return html2canvas(doc, H2C_OPTS)
+    .then(canvas => { doc.style.transform = orig; return canvas.toDataURL('image/png'); })
+    .catch(err => { doc.style.transform = orig; throw err; });
+}
+
+/**
+ * 미리보기 영역에 발주서 HTML 삽입 후 모바일 스케일 적용
+ * @param {string} html
+ */
+function applyPreviewHTML(html) {
+  const target = document.getElementById('preview-target');
+  target.innerHTML = html;
+  const doc = target.querySelector('.po-doc');
+  if (doc) {
+    const scale = Math.min(1, (window.innerWidth - 28) / 800);
+    doc.style.transform = `scale(${scale})`;
+    doc.style.transformOrigin = 'top left';
+    requestAnimationFrame(() => { target.style.height = (doc.scrollHeight * scale + 60) + 'px'; });
+  }
+}
+
+/**
+ * catalog item의 photos/angles 정규화
+ * @param {Object} item
+ */
+function normalizeItem(item) {
+  if (!item.photos || typeof item.photos !== 'object') item.photos = {};
+  if (item.defaultPhoto && !item.photos['정면']) item.photos['정면'] = item.defaultPhoto;
+  if (!Array.isArray(item.angles) || item.angles.length === 0) {
+    item.angles = Object.keys(item.photos).filter(k => item.photos[k]);
+    if (item.angles.length === 0) item.angles = ['정면'];
+  }
+}
+
+/**
+ * 카탈로그 로드 후 모든 품목 드롭다운 및 사진 슬롯 갱신
+ */
+function refreshAllItems() {
+  document.querySelectorAll('.item-row').forEach(row => {
+    const sel = row.querySelector('.item-cat');
+    if (!sel) return;
+    const curId = sel.value;
+    sel.innerHTML = buildCatOptions(curId);
+    sel.value = curId;
+    const itemId = parseInt(row.id.replace('item-', ''));
+    const cat = getCatalogItem(curId);
+    if (cat && cat.photos && Object.keys(cat.photos).length > 0) {
+      if (!itemPhotoSlots[itemId] || Object.keys(itemPhotoSlots[itemId]).length === 0) {
+        itemPhotoSlots[itemId] = { ...cat.photos };
+      }
+    }
+    renderPhotoSlots(itemId, cat ? (cat.angles || ['정면']) : ['정면']);
+  });
+}
+
+// ════════════════════════════════════════
 // 사진 압축 유틸리티
 // ════════════════════════════════════════
 const MAX_PHOTO_BYTES = 500 * 1024; // 500KB (base64 기준 ~667KB)
@@ -888,33 +972,23 @@ function init() {
 }
 
 function loadSettings() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('zytn_suppliers') || 'null');
-    SUPPLIERS = (saved && Array.isArray(saved) && saved.length > 0) ? saved : JSON.parse(JSON.stringify(DEFAULT_SUPPLIERS));
-  } catch (e) {
-    SUPPLIERS = JSON.parse(JSON.stringify(DEFAULT_SUPPLIERS));
-  }
-  try {
-    const savedBuyer = JSON.parse(localStorage.getItem('zytn_buyer') || 'null');
-    BUYER = (savedBuyer && savedBuyer.name) ? savedBuyer : { ...DEFAULT_BUYER };
-  } catch (e) {
-    BUYER = { ...DEFAULT_BUYER };
-  }
-  // 텔레그램 설정 로드
-  try {
-    const tg = JSON.parse(localStorage.getItem('zytn_telegram') || 'null');
-    if (tg) { TG_TOKEN = tg.token || ''; TG_CHAT_ID = tg.chatId || ''; }
-  } catch (e) {}
-  // 수취인 목록 로드
-  try {
-    const saved = JSON.parse(localStorage.getItem('zytn_recipients') || '[]');
-    RECIPIENTS = Array.isArray(saved) ? saved : [];
-  } catch (e) { RECIPIENTS = []; }
+  const savedSuppliers = lsLoad('zytn_suppliers', null);
+  SUPPLIERS = (savedSuppliers && Array.isArray(savedSuppliers) && savedSuppliers.length > 0)
+    ? savedSuppliers : JSON.parse(JSON.stringify(DEFAULT_SUPPLIERS));
+
+  const savedBuyer = lsLoad('zytn_buyer', null);
+  BUYER = (savedBuyer && savedBuyer.name) ? savedBuyer : { ...DEFAULT_BUYER };
+
+  const tg = lsLoad('zytn_telegram', null);
+  if (tg) { TG_TOKEN = tg.token || ''; TG_CHAT_ID = tg.chatId || ''; }
+
+  const savedRecipients = lsLoad('zytn_recipients', []);
+  RECIPIENTS = Array.isArray(savedRecipients) ? savedRecipients : [];
 }
 
 function loadCatalog() {
   CATALOG = JSON.parse(JSON.stringify(DEFAULT_CATALOG));
-  const custom = JSON.parse(localStorage.getItem('zytn_catalog') || '[]');
+  const custom = lsLoad('zytn_catalog', []);
   custom.forEach(item => {
     item.isCustom = true;
     const idx = CATALOG.findIndex(c => c.id === item.id);
@@ -924,13 +998,9 @@ function loadCatalog() {
 }
 
 function initHistory() {
-  try {
-    const raw = JSON.parse(localStorage.getItem('zytn_po_history') || '[]');
-    // 유효한 데이터만 필터링 (supplier, ship, items 필드 필수)
-    poHistory = raw.filter(h => h && h.supplier && h.ship && Array.isArray(h.items));
-  } catch (e) {
-    poHistory = [];
-  }
+  const raw = lsLoad('zytn_po_history', []);
+  // 유효한 데이터만 필터링 (supplier, ship, items 필드 필수)
+  poHistory = raw.filter(h => h && h.supplier && h.ship && Array.isArray(h.items));
 }
 
 function tryLoadJsonFile() {
@@ -941,70 +1011,25 @@ function tryLoadJsonFile() {
       if (!Array.isArray(data) || !data.length) return;
 
       let added = 0, updated = 0;
-
       data.forEach(item => {
         if (!item.id || !item.name) return;
         item.isCustom = true;
-
-        // photos 정규화: 최상위 photos 객체 또는 defaultPhoto → photos['정면']
-        if (!item.photos || typeof item.photos !== 'object') item.photos = {};
-        if (item.defaultPhoto && !item.photos['정면']) {
-          item.photos['정면'] = item.defaultPhoto;
-        }
-
-        // angles 정규화: photos 키 기반으로 보완
-        if (!Array.isArray(item.angles) || item.angles.length === 0) {
-          item.angles = Object.keys(item.photos).filter(k => item.photos[k]);
-          if (item.angles.length === 0) item.angles = ['정면'];
-        }
-
+        normalizeItem(item); // ← 정규화 헬퍼 사용
         const idx = CATALOG.findIndex(c => c.id === item.id);
-        if (idx >= 0) {
-          // 기존 항목 업데이트 (사진 포함 항상 덮어씀)
-          CATALOG[idx] = { ...CATALOG[idx], ...item };
-          updated++;
-        } else {
-          // 새 항목 추가 (직접입력 앞에 삽입)
-          CATALOG.splice(CATALOG.length - 1, 0, item);
-          added++;
-        }
+        if (idx >= 0) { CATALOG[idx] = { ...CATALOG[idx], ...item }; updated++; }
+        else { CATALOG.splice(CATALOG.length - 1, 0, item); added++; }
       });
 
-      // 카테고리 select 및 필터 칩 갱신
       renderCategorySelect('');
       renderCatFilterChips();
-
-      // 카탈로그 목록 갱신
       renderCatalogList();
+      refreshAllItems(); // ← 헬퍼 사용
 
-      // ★ 핵심: 모든 기존 품목 드롭다운 갱신 + 사진 슬롯 재렌더링
-      document.querySelectorAll('.item-row').forEach(row => {
-        const sel = row.querySelector('.item-cat');
-        if (!sel) return;
-        const curId = sel.value;
-        // 드롭다운 옵션 재구성
-        sel.innerHTML = buildCatOptions(curId);
-        sel.value = curId;
-        // 현재 선택된 품목의 사진 슬롯 재렌더링
-        const itemId = parseInt(row.id.replace('item-', ''));
-        const cat = getCatalogItem(curId);
-        if (cat && cat.photos && Object.keys(cat.photos).length > 0) {
-          // 사용자가 직접 업로드한 사진이 없는 경우에만 카탈로그 사진 적용
-          if (!itemPhotoSlots[itemId] || Object.keys(itemPhotoSlots[itemId]).length === 0) {
-            itemPhotoSlots[itemId] = { ...cat.photos };
-          }
-        }
-        renderPhotoSlots(itemId, cat ? (cat.angles || ['정면']) : ['정면']);
-      });
-
-      const total = added + updated;
-      if (total > 0) {
+      if (added + updated > 0) {
         showToast(`✅ JSON 품목 로드: ${added}개 신규, ${updated}개 갱신 (사진 포함)`, 'success');
       }
     })
-    .catch(() => {
-      // file:// 환경이거나 JSON 없음 - 정상
-    });
+    .catch(() => { /* file:// 환경이거나 JSON 없음 - 정상 */ });
 }
 
 // ════════════════════════════════════════
@@ -1101,7 +1126,7 @@ function saveSupplier() {
     SUPPLIERS.push(supplier);
   }
 
-  localStorage.setItem('zytn_suppliers', JSON.stringify(SUPPLIERS));
+  lsSave('zytn_suppliers', SUPPLIERS);
   renderSuppliers();
   document.getElementById('supplier-modal').classList.remove('show');
   showToast('✅ 공급업체 저장 완료', 'success');
@@ -1111,7 +1136,7 @@ function deleteSupplier(idx) {
   if (!confirm(`'${SUPPLIERS[idx].name}'을 삭제할까요?`)) return;
   SUPPLIERS.splice(idx, 1);
   if (selectedSupplierIdx >= SUPPLIERS.length) selectedSupplierIdx = 0;
-  localStorage.setItem('zytn_suppliers', JSON.stringify(SUPPLIERS));
+  lsSave('zytn_suppliers', SUPPLIERS);
   renderSuppliers();
   showToast('삭제 완료');
 }
@@ -1149,9 +1174,9 @@ function saveBuyerSettings() {
     biz: document.getElementById('set-buyer-biz').value.trim() || DEFAULT_BUYER.biz,
     email: document.getElementById('set-buyer-email').value.trim() || DEFAULT_BUYER.email,
   };
-  localStorage.setItem('zytn_buyer', JSON.stringify(BUYER));
+  lsSave('zytn_buyer', BUYER);
   renderBuyerInfo();
-  showToast('✅ 발주처 정보 저장 완료', 'success');
+  showToast('✅ 발주체 정보 저장 완료', 'success');
 }
 
 // ════════════════════════════════════════
@@ -1430,15 +1455,8 @@ function getItems() {
   }).filter(r => r.name.trim());
 }
 
-function refreshItemDropdowns() {
-  document.querySelectorAll('.item-row').forEach(row => {
-    const sel = row.querySelector('.item-cat');
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = buildCatOptions(cur);
-    sel.value = cur;
-  });
-}
+// refreshItemDropdowns: refreshAllItems로 통합
+function refreshItemDropdowns() { refreshAllItems(); }
 
 // ════════════════════════════════════════
 // 발주서 HTML 생성
@@ -1576,24 +1594,7 @@ function generatePreview() {
   }
 
   const data = collectData();
-  const html = buildPoHTML(data);
-
-  const target = document.getElementById('preview-target');
-  target.innerHTML = html;
-
-  // 모바일 스케일 조정
-  const doc = target.querySelector('.po-doc');
-  if (doc) {
-    const vw = window.innerWidth - 28;
-    const scale = Math.min(1, vw / 800);
-    doc.style.transform = `scale(${scale})`;
-    doc.style.transformOrigin = 'top left';
-    // scrollHeight를 scale 적용 후 높이로 설정
-    requestAnimationFrame(() => {
-      target.style.height = (doc.scrollHeight * scale + 60) + 'px';
-    });
-  }
-
+  applyPreviewHTML(buildPoHTML(data)); // ← 헬퍼 사용
   switchTab('preview');
   saveToHistory(data);
 }
@@ -1624,31 +1625,14 @@ function collectData() {
 function saveImage() {
   const doc = document.getElementById('po-doc-render');
   if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
-
   showToast('📸 이미지 저장 중...');
-
-  const origTransform = doc.style.transform;
-  doc.style.transform = 'none';
-
-  html2canvas(doc, {
-    scale: 2,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    logging: false,
-    allowTaint: true,
-  }).then(canvas => {
-    doc.style.transform = origTransform;
+  captureDoc(doc).then(dataURL => {
     const link = document.createElement('a');
-    const poNum = document.getElementById('po-num').value;
-    link.download = `발주서_${poNum}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.download = `발주서_${document.getElementById('po-num').value}.png`;
+    link.href = dataURL;
     link.click();
     showToast('✅ 이미지 저장 완료!', 'success');
-  }).catch(err => {
-    doc.style.transform = origTransform;
-    console.error(err);
-    showToast('저장 오류. 다시 시도해주세요.', 'error');
-  });
+  }).catch(err => { console.error(err); showToast('저장 오류. 다시 시도해주세요.', 'error'); });
 }
 
 // 공유용 이미지 dataURL 캐시
@@ -1658,58 +1642,41 @@ function shareImage() {
   const doc = document.getElementById('po-doc-render');
   if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
 
-  // file:// 환경이면 Web Share API 사용 불가 → 바로 모달
-  const isFileProtocol = location.protocol === 'file:';
-  // 모바일(Web Share API 지원)이면 바로 공유 (단, file:// 환경 제외)
-  if (!isFileProtocol && navigator.share && navigator.canShare) {
-    showToast('📤 공유 준비 중...');
-    const origTransform = doc.style.transform;
-    doc.style.transform = 'none';
-    html2canvas(doc, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true })
-      .then(async canvas => {
-        doc.style.transform = origTransform;
-        canvas.toBlob(async blob => {
-          const poNum = document.getElementById('po-num').value;
-          const file = new File([blob], `발주서_${poNum}.png`, { type: 'image/png' });
-          if (navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({ title: `발주서 ${poNum}`, text: `ZYTN 발주서 ${poNum}`, files: [file] });
-              showToast('✅ 공유 완료!', 'success');
-            } catch (e) {
-              if (e.name !== 'AbortError') openShareModal();
-            }
-          } else { openShareModal(); }
-        }, 'image/png');
-      }).catch(() => { doc.style.transform = origTransform; openShareModal(); });
-    return;
+  // file:// 환경 또는 Web Share API 미지원 시 모달
+  if (location.protocol === 'file:' || !navigator.share || !navigator.canShare) {
+    openShareModal(); return;
   }
-  // 데스크톱(file:// 포함): 공유 모달 열기
-  openShareModal();
+  showToast('📤 공유 준비 중...');
+  captureDoc(doc).then(dataURL => {
+    fetch(dataURL).then(r => r.blob()).then(async blob => {
+      const poNum = document.getElementById('po-num').value;
+      const file = new File([blob], `발주서_${poNum}.png`, { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ title: `발주서 ${poNum}`, text: `ZYTN 발주서 ${poNum}`, files: [file] });
+          showToast('✅ 공유 완료!', 'success');
+        } catch (e) { if (e.name !== 'AbortError') openShareModal(); }
+      } else { openShareModal(); }
+    });
+  }).catch(() => openShareModal());
 }
 
 function openShareModal() {
   const doc = document.getElementById('po-doc-render');
   if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
 
-  const poNum = document.getElementById('po-num').value || 'PO';
-  const modal = document.getElementById('share-modal');
-  modal.classList.add('show');
-
-  // 이미지 생성 (캐시 활용)
-  const origTransform = doc.style.transform;
-  doc.style.transform = 'none';
+  _sharePoNum = document.getElementById('po-num').value || 'PO';
+  document.getElementById('share-modal').classList.add('show');
   document.getElementById('share-preview-img').src = '';
   document.getElementById('share-status').textContent = '이미지 생성 중...';
 
-  html2canvas(doc, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true })
-    .then(canvas => {
-      doc.style.transform = origTransform;
-      _shareDataUrl = canvas.toDataURL('image/png');
-      _sharePoNum = poNum;
-      document.getElementById('share-preview-img').src = _shareDataUrl;
+  captureDoc(doc)
+    .then(dataURL => {
+      _shareDataUrl = dataURL;
+      document.getElementById('share-preview-img').src = dataURL;
       document.getElementById('share-status').textContent = '아래 방법으로 공유하세요';
-    }).catch(() => {
-      doc.style.transform = origTransform;
+    })
+    .catch(() => {
       document.getElementById('share-status').textContent = '이미지 생성 실패. PNG 저장을 이용해주세요.';
     });
 }
@@ -1735,17 +1702,23 @@ function shareViaTelegram() {
   showToast('✈️ 텔레그램 열림. PNG 저장 후 파일 전송하세요.', 'success');
 }
 
+// 텔레그램 설정 저장 헬퍼
+function _persistTgSettings(token, chatId) {
+  TG_TOKEN = token;
+  TG_CHAT_ID = chatId;
+  lsSave('zytn_telegram', { token, chatId });
+}
+
 // 텔레그램 봇 설정 저장
 function saveTelegramSettings() {
   const token = document.getElementById('set-tg-token').value.trim();
   const chatId = document.getElementById('set-tg-chatid').value.trim();
   if (!token || !chatId) { showToast('토큰과 채팅 ID를 모두 입력하세요', 'error'); return; }
-  TG_TOKEN = token;
-  TG_CHAT_ID = chatId;
-  localStorage.setItem('zytn_telegram', JSON.stringify({ token, chatId }));
+  _persistTgSettings(token, chatId);
   showToast('✅ 텔레그램 설정 저장 완료', 'success');
-  document.getElementById('tg-status').textContent = '✅ 저장됨 (연결 테스트를 실행해보세요)';
-  document.getElementById('tg-status').style.color = 'var(--success)';
+  const s = document.getElementById('tg-status');
+  s.textContent = '✅ 저장됨 (연결 테스트를 실행해보세요)';
+  s.style.color = 'var(--green)';
 }
 
 // 텔레그램 봇 연결 테스트
@@ -1764,8 +1737,7 @@ async function testTelegramBot() {
     });
     const data = await res.json();
     if (data.ok) {
-      TG_TOKEN = token; TG_CHAT_ID = chatId;
-      localStorage.setItem('zytn_telegram', JSON.stringify({ token, chatId }));
+      _persistTgSettings(token, chatId);
       statusEl.textContent = '✅ 연결 성공! 텔레그램으로 테스트 메시지가 전송되었습니다.';
       statusEl.style.color = '#22c55e';
       showToast('✅ 텔레그램 연결 성공!', 'success');
@@ -1865,7 +1837,7 @@ function downloadAndShare() {
 function saveToHistory(data) {
   poHistory.unshift(data);
   if (poHistory.length > 50) poHistory = poHistory.slice(0, 50);
-  try { localStorage.setItem('zytn_po_history', JSON.stringify(poHistory)); } catch (e) {}
+  lsSave('zytn_po_history', poHistory);
   renderHistory();
   // 수취인 정보 자동 저장
   saveRecipientAuto(data.ship);
@@ -1890,7 +1862,7 @@ function saveRecipientAuto(ship) {
     RECIPIENTS.unshift(entry);
     if (RECIPIENTS.length > 100) RECIPIENTS = RECIPIENTS.slice(0, 100);
   }
-  try { localStorage.setItem('zytn_recipients', JSON.stringify(RECIPIENTS)); } catch (e) {}
+  lsSave('zytn_recipients', RECIPIENTS);
 }
 
 // ════════════════════════════════════════
@@ -1943,7 +1915,7 @@ function deleteRecipient(idx, event) {
   if (!r) return;
   if (!confirm(`'${r.name}' 수취인을 삭제하시겠습니까?`)) return;
   RECIPIENTS.splice(idx, 1);
-  try { localStorage.setItem('zytn_recipients', JSON.stringify(RECIPIENTS)); } catch (e) {}
+  lsSave('zytn_recipients', RECIPIENTS);
   renderRecipientList();
   showToast('수취인이 삭제되었습니다', 'success');
 }
@@ -1987,7 +1959,7 @@ function deleteHistory(idx, event) {
   if (!h) return;
   if (!confirm(`'${h.poNum}' 발주서를 삭제하시겠습니까?`)) return;
   poHistory.splice(idx, 1);
-  try { localStorage.setItem('zytn_po_history', JSON.stringify(poHistory)); } catch (e) {}
+  lsSave('zytn_po_history', poHistory);
   renderHistory();
   showToast('발주서가 삭제되었습니다', 'success');
 }
@@ -1996,7 +1968,7 @@ function deleteAllHistory() {
   if (!poHistory.length) return;
   if (!confirm(`저장된 발주서 ${poHistory.length}건을 모두 삭제하시겠습니까?`)) return;
   poHistory = [];
-  try { localStorage.setItem('zytn_po_history', JSON.stringify(poHistory)); } catch (e) {}
+  lsSave('zytn_po_history', poHistory);
   renderHistory();
   showToast('전체 내역이 삭제되었습니다', 'success');
 }
@@ -2021,20 +1993,7 @@ function reloadHistory(idx) {
 
 function loadHistory(idx) {
   const data = poHistory[idx];
-  const html = buildPoHTML(data);
-  const target = document.getElementById('preview-target');
-  target.innerHTML = html;
-
-  const doc = target.querySelector('.po-doc');
-  if (doc) {
-    const vw = window.innerWidth - 28;
-    const scale = Math.min(1, vw / 800);
-    doc.style.transform = `scale(${scale})`;
-    doc.style.transformOrigin = 'top left';
-    requestAnimationFrame(() => {
-      target.style.height = (doc.scrollHeight * scale + 60) + 'px';
-    });
-  }
+  applyPreviewHTML(buildPoHTML(data)); // ← 헬퍼 사용
   switchTab('preview');
 }
 
@@ -2211,10 +2170,7 @@ function saveCatalogItem() {
 }
 
 function saveCustomCatalog() {
-  const custom = CATALOG.filter(c => c.isCustom);
-  try { localStorage.setItem('zytn_catalog', JSON.stringify(custom)); } catch (e) {
-    showToast('⚠️ 저장 공간 부족. JSON 백업을 권장합니다.', 'error');
-  }
+  lsSave('zytn_catalog', CATALOG.filter(c => c.isCustom));
 }
 
 function clearCatalogForm() {
@@ -2259,6 +2215,7 @@ function deleteCatalogItem(id) {
   const idx = CATALOG.findIndex(c => c.id === id);
   if (idx >= 0) CATALOG.splice(idx, 1);
   saveCustomCatalog();
+  renderCatFilterChips();
   renderCatalogList();
   refreshItemDropdowns();
   showToast('삭제 완료');
@@ -2267,15 +2224,10 @@ function deleteCatalogItem(id) {
 function renderCatalogList() {
   const el = document.getElementById('catalog-list');
   if (!el) return;
-
-  // 카테고리 필터 적용
   let allItems = CATALOG.filter(c => c.id !== 'custom');
   if (currentCatFilter !== '전체') {
     allItems = allItems.filter(c => (c.category || '기타') === currentCatFilter);
   }
-
-  // 필터 칩 항상 업데이트
-  renderCatFilterChips();
 
   if (!allItems.length) {
     el.innerHTML = `<div class="loading">${currentCatFilter === '전체' ? '등록된 품목 없음' : `'${currentCatFilter}' 카테고리에 품목이 없습니다`}</div>`;
@@ -2337,16 +2289,7 @@ function importCatalog(input) {
       if (!Array.isArray(items)) throw new Error('Invalid format');
       items.forEach(item => {
         item.isCustom = true;
-        // photos 정규화
-        if (!item.photos || typeof item.photos !== 'object') item.photos = {};
-        if (item.defaultPhoto && !item.photos['정면']) {
-          item.photos['정면'] = item.defaultPhoto;
-        }
-        // angles 정규화
-        if (!Array.isArray(item.angles) || item.angles.length === 0) {
-          item.angles = Object.keys(item.photos).filter(k => item.photos[k]);
-          if (item.angles.length === 0) item.angles = ['정면'];
-        }
+        normalizeItem(item); // ← 정규화 헬퍼
         const idx = CATALOG.findIndex(c => c.id === item.id);
         if (idx >= 0) CATALOG[idx] = item;
         else CATALOG.splice(CATALOG.length - 1, 0, item);
@@ -2355,22 +2298,7 @@ function importCatalog(input) {
       renderCategorySelect('');
       renderCatFilterChips();
       renderCatalogList();
-      // 드롭다운 + 사진 슬롯 재렌더링
-      document.querySelectorAll('.item-row').forEach(row => {
-        const sel = row.querySelector('.item-cat');
-        if (!sel) return;
-        const curId = sel.value;
-        sel.innerHTML = buildCatOptions(curId);
-        sel.value = curId;
-        const itemId = parseInt(row.id.replace('item-', ''));
-        const cat = getCatalogItem(curId);
-        if (cat && cat.photos && Object.keys(cat.photos).length > 0) {
-          if (!itemPhotoSlots[itemId] || Object.keys(itemPhotoSlots[itemId]).length === 0) {
-            itemPhotoSlots[itemId] = { ...cat.photos };
-          }
-        }
-        renderPhotoSlots(itemId, cat ? (cat.angles || ['정면']) : ['정면']);
-      });
+      refreshAllItems(); // ← 헬퍼
       showToast(`✅ ${items.length}개 품목 복원 완료 (사진 포함)`, 'success');
     } catch {
       showToast('❌ 파일 형식 오류', 'error');
