@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ZYTN 발주서</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16181c;
+    --surface2: #1e2128;
+    --border: #2a2d35;
+    --accent: #f0a500;
+    --accent2: #ff6b35;
+    --text: #e8eaed;
+    --text2: #9aa0b0;
+    --red: #ff4444;
+    --green: #00c896;
+    --blue: #4a9eff;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── 탭 네비 ── */
+  .tab-nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+  .tab-btn {
+    flex: 1; padding: 13px 4px;
+    background: none; border: none; color: var(--text2);
+    font-family: inherit; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all .2s;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .tab-btn .tab-icon { font-size: 16px; }
+  .tab-btn .tab-label { font-size: 10px; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── 탭 패널 ── */
+  .tab-panel { display: none; padding: 14px; padding-bottom: 90px; }
+  .tab-panel.active { display: block; }
+
+  /* ── 섹션 카드 ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 700;
+    color: var(--accent); letter-spacing: 1.5px;
+    text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── 입력 폼 ── */
+  label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
+  input, select, textarea {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: inherit;
+    font-size: 14px; padding: 10px 12px;
+    margin-bottom: 10px; outline: none;
+    transition: border-color .2s;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  input[readonly] { opacity: .7; cursor: default; }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa0b0' fill='none' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* ── 품목 행 ── */
+  .item-row {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .item-row.dragging { opacity: .5; border-color: var(--accent); }
+  .item-num {
+    font-size: 10px; font-weight: 700; color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .item-row .row2 { display: flex; gap: 8px; }
+  .item-row .row2 input { margin-bottom: 0; }
+  .del-btn {
+    position: absolute; top: 8px; right: 8px;
+    background: none; border: none; color: var(--text2);
+    font-size: 20px; cursor: pointer; line-height: 1;
+    padding: 2px 6px; border-radius: 4px;
+    transition: color .15s;
+  }
+  .del-btn:active, .del-btn:hover { color: var(--red); }
+
+  /* ── 사진 슬롯 ── */
+  .angle-slot { margin-bottom: 10px; }
+  .angle-slot-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .angle-label {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+  }
+  .angle-del-btn {
+    background: none; border: none; color: var(--text2);
+    font-size: 11px; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; transition: color .15s;
+  }
+  .angle-del-btn:hover { color: var(--red); }
+  .angle-upload-btn {
+    border: 2px dashed var(--border); border-radius: 8px;
+    padding: 16px; text-align: center; cursor: pointer;
+    color: var(--text2); font-size: 12px;
+    transition: border-color .2s, background .2s;
+  }
+  .angle-upload-btn:hover, .angle-upload-btn:active {
+    border-color: var(--accent); background: rgba(240,165,0,.05);
+  }
+  .angle-photo-img {
+    width: 100%; max-height: 150px; object-fit: contain;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: #fff; display: block;
+  }
+
+  /* ── 버튼 ── */
+  .btn {
+    width: 100%; padding: 13px;
+    border: none; border-radius: 10px;
+    font-family: inherit; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all .15s;
+    margin-bottom: 10px;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:active { opacity: .85; transform: scale(.98); }
+  .btn-secondary { background: var(--blue); color: #fff; }
+  .btn-secondary:active { opacity: .85; }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-green:active { opacity: .85; }
+  .btn-outline {
+    background: none; border: 1px solid var(--border);
+    color: var(--text2);
+  }
+  .btn-outline:active { background: var(--surface2); }
+  .btn-danger { background: none; border: 1px solid var(--red); color: var(--red); }
+  .btn-add {
+    background: var(--surface2); border: 2px dashed var(--border);
+    color: var(--text2); padding: 12px; font-size: 13px;
+    border-radius: 8px; width: 100%; cursor: pointer;
+    margin-bottom: 12px; font-family: inherit; font-weight: 500;
+    transition: all .15s;
+  }
+  .btn-add:hover, .btn-add:active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── 납기/배송 칩 ── */
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip {
+    padding: 7px 13px; border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 12px; cursor: pointer;
+    background: var(--surface2); color: var(--text2);
+    transition: all .15s; font-family: inherit;
+    white-space: nowrap;
+  }
+  .chip.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+  .chip:active { transform: scale(.95); }
+
+  /* ── 공급업체 카드 ── */
+  .supplier-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .supplier-card {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; cursor: pointer;
+    background: var(--surface2);
+    transition: all .15s;
+    position: relative;
+  }
+  .supplier-card.active {
+    border-color: var(--accent);
+    background: rgba(240,165,0,.08);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .supplier-card .s-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .supplier-card .s-info { font-size: 11px; color: var(--text2); margin-top: 3px; }
+  .supplier-card .s-actions {
+    position: absolute; top: 8px; right: 8px;
+    display: flex; gap: 4px;
+  }
+  .s-edit-btn, .s-del-btn {
+    background: none; border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 7px;
+    font-size: 10px; cursor: pointer;
+    color: var(--text2); font-family: inherit;
+    transition: all .15s;
+  }
+  .s-edit-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .s-del-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── 모달 ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    z-index: 500; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; width: 100%; max-width: 420px;
+    max-height: 85vh; overflow-y: auto;
+    transform: translateY(20px);
+    transition: transform .2s;
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+  .modal-title {
+    font-size: 15px; font-weight: 700; color: var(--text);
+    margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .modal-actions .btn { margin-bottom: 0; }
+
+  /* ── 발주서 미리보기 문서 ── */
+  #preview-wrapper { display: none; }
+
+  .po-doc {
+    background: #fff; color: #111;
+    font-family: 'Noto Sans KR', sans-serif;
+    width: 800px;
+    padding: 36px 40px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .po-doc * { box-sizing: border-box; }
+
+  .po-header {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; margin-bottom: 20px;
+    border-bottom: 3px solid #111; padding-bottom: 16px;
+  }
+  .po-title-block {}
+  .po-title {
+    font-size: 30px; font-weight: 900; letter-spacing: 10px;
+    color: #111;
+  }
+  .po-subtitle {
+    font-size: 11px; color: #888; letter-spacing: 2px;
+    margin-top: 4px;
+  }
+  .po-meta { text-align: right; }
+  .po-meta table { border-collapse: collapse; }
+  .po-meta td { padding: 2px 8px; font-size: 12px; }
+  .po-meta td:first-child { color: #666; text-align: right; }
+  .po-meta td:last-child { font-weight: 700; }
+
+  .po-parties { display: flex; gap: 0; margin-bottom: 0; }
+  .po-party {
+    flex: 1; border: 1px solid #ddd; padding: 14px;
+  }
+  .po-party:first-child { border-right: none; }
+  .po-party h3 {
+    font-size: 10px; letter-spacing: 1.5px; color: #888;
+    text-transform: uppercase; margin-bottom: 10px;
+    padding-bottom: 6px; border-bottom: 1px solid #eee;
+    font-weight: 700;
+  }
+  .po-party table { border-collapse: collapse; width: 100%; }
+  .po-party td { padding: 3px 0; font-size: 12px; vertical-align: top; }
+  .po-party td:first-child { color: #666; width: 80px; white-space: nowrap; }
+
+  .po-ship {
+    border: 1px solid #ddd; border-top: none;
+    padding: 14px; margin-bottom: 16px;
+  }
+  .po-ship h3 {
+    font-size: 10px; letter-spacing: 1.5px; color: #888;
+    margin-bottom: 10px; padding-bottom: 6px;
+    border-bottom: 1px solid #eee; font-weight: 700;
+  }
+  .po-ship .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .po-ship .field { display: flex; gap: 8px; font-size: 12px; }
+  .po-ship .field span:first-child { color: #666; white-space: nowrap; }
+
+  .po-items { margin-bottom: 16px; }
+  .po-items table { width: 100%; border-collapse: collapse; }
+  .po-items th {
+    background: #1a1a1a; color: #fff;
+    padding: 9px 10px; font-size: 12px; font-weight: 700;
+    text-align: left;
+  }
+  .po-items td {
+    padding: 9px 10px; font-size: 12px;
+    border-bottom: 1px solid #eee; vertical-align: middle;
+  }
+  .po-items tr:nth-child(even) td { background: #f8f8f8; }
+
+  .po-photos { margin-bottom: 16px; }
+  .po-photos h3 {
+    font-size: 10px; letter-spacing: 1.5px; color: #888;
+    margin-bottom: 12px; padding-bottom: 6px;
+    border-bottom: 1px solid #eee; font-weight: 700;
+  }
+  .po-photo-item { margin-bottom: 16px; }
+  .po-photo-item-title {
+    font-size: 12px; font-weight: 700; color: #333;
+    margin-bottom: 8px; padding-bottom: 4px;
+    border-bottom: 1px solid #eee;
+  }
+  .po-photos-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .po-photos-grid .photo-cell { text-align: center; }
+  .po-photos-grid img {
+    width: 170px; height: 130px; object-fit: contain;
+    border: 1px solid #ddd; border-radius: 4px;
+    background: #fafafa; display: block;
+  }
+  .po-photos-grid .photo-caption {
+    font-size: 10px; color: #888; text-align: center; margin-top: 3px;
+  }
+
+  .po-footer {
+    border-top: 2px solid #111; padding-top: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .po-footer-text { font-size: 11px; color: #aaa; }
+  .po-seal {
+    display: inline-block; border: 2px solid #c00;
+    border-radius: 50%; padding: 8px 14px;
+    color: #c00; font-weight: 900; font-size: 14px;
+    letter-spacing: 3px;
+  }
+
+  /* ── 미리보기 탭 ── */
+  .preview-scale-wrap {
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+
+  /* ── 하단 버튼바 ── */
+  .actions-bar {
+    display: flex; gap: 8px;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 200;
+    box-shadow: 0 -4px 16px rgba(0,0,0,.4);
+  }
+  .actions-bar .btn { margin-bottom: 0; flex: 1; }
+
+  /* ── 배지 ── */
+  .badge {
+    display: inline-block; background: var(--accent);
+    color: #000; font-size: 10px; font-weight: 700;
+    border-radius: 4px; padding: 1px 6px; margin-left: 6px;
+  }
+
+  /* ── 토스트 ── */
+  .toast {
+    position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
+    background: #333; color: #fff;
+    font-size: 13px; font-weight: 600;
+    padding: 10px 20px; border-radius: 20px;
+    z-index: 999; opacity: 0;
+    transition: opacity .3s;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  }
+  .toast.show { opacity: 1; }
+  .toast.success { background: var(--green); color: #000; }
+  .toast.error { background: var(--red); color: #fff; }
+
+  /* ── 내역 카드 ── */
+  .history-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; margin-bottom: 8px;
+    cursor: pointer; transition: border-color .15s;
+  }
+  .history-card:hover { border-color: var(--accent); }
+  .history-card .h-num { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .history-card .h-info { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .history-card .h-date { font-size: 11px; color: var(--border); margin-top: 2px; }
+
+  /* ── 로딩 ── */
+  .loading {
+    text-align: center; padding: 30px;
+    color: var(--text2); font-size: 13px;
+  }
+
+  /* ── 발주처 정보 박스 ── */
+  .buyer-info-box {
+    background: var(--surface2); border-radius: 8px;
+    padding: 12px; font-size: 13px; color: var(--text2);
+    line-height: 1.7;
+  }
+
+  /* ── 섹션 구분선 ── */
+  .section-divider {
+    height: 1px; background: var(--border);
+    margin: 12px 0;
+  }
+
+  /* ── 스크롤바 ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── 반응형 ── */
+  @media (max-width: 480px) {
+    .tab-btn .tab-label { display: none; }
+    .tab-btn { padding: 14px 4px; }
+    .tab-btn .tab-icon { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 탭 네비 -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('input')">
+    <span class="tab-icon">📝</span>
+    <span class="tab-label">입력</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('preview')">
+    <span class="tab-icon">👁</span>
+    <span class="tab-label">미리보기</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('history')">
+    <span class="tab-icon">📋</span>
+    <span class="tab-label">내역</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('catalog')">
+    <span class="tab-icon">🗂</span>
+    <span class="tab-label">품목</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('settings')">
+    <span class="tab-icon">⚙️</span>
+    <span class="tab-label">설정</span>
+  </button>
+</div>
+
+<!-- ════ 입력 탭 ════ -->
+<div class="tab-panel active" id="tab-input">
+
+  <!-- 문서 정보 -->
+  <div class="card">
+    <div class="card-title">📄 문서 정보</div>
+    <label>발주번호 (자동생성)</label>
+    <input type="text" id="po-num" placeholder="자동생성" readonly style="color:var(--accent);font-weight:700;letter-spacing:1px;">
+    <label>발주일자</label>
+    <input type="text" id="po-date" readonly style="color:var(--text2);">
+    <label>납기요청일</label>
+    <div class="chip-group" id="deadline-chips">
+      <div class="chip active" onclick="selectChip(this,'deadline')">빠른시간 내</div>
+      <div class="chip" onclick="selectChip(this,'deadline')">금주내</div>
+      <div class="chip" onclick="selectChip(this,'deadline')">익일</div>
+      <div class="chip" onclick="selectChip(this,'deadline')">직접입력</div>
+    </div>
+    <input type="text" id="deadline-custom" placeholder="납기일 직접입력 (예: 2026-05-20)" style="display:none;">
+  </div>
+
+  <!-- 공급업체 -->
+  <div class="card">
+    <div class="card-title">🏭 공급업체 선택</div>
+    <div class="supplier-cards" id="supplier-list"></div>
+    <button class="btn-add" onclick="openSupplierModal(null)">＋ 공급업체 추가</button>
+  </div>
+
+  <!-- 발주처 -->
+  <div class="card">
+    <div class="card-title">🏢 발주처 (지튼)</div>
+    <div class="buyer-info-box" id="buyer-info-display"></div>
+  </div>
+
+  <!-- 받는사람 -->
+  <div class="card">
+    <div class="card-title">📦 받는사람 / 배송정보</div>
+    <label>배송유형</label>
+    <div class="chip-group" id="shiptype-chips">
+      <div class="chip active" onclick="selectChip(this,'shiptype')">택배발송(배송비포함)</div>
+      <div class="chip" onclick="selectChip(this,'shiptype')">경동화물</div>
+      <div class="chip" onclick="selectChip(this,'shiptype')">대신화물</div>
+      <div class="chip" onclick="selectChip(this,'shiptype')">직접인수</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <label style="margin:0;">수취인명 *</label>
+      <button type="button" onclick="toggleRecipientList()" id="recv-list-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;">&#128100; 저장된 수취인</button>
+    </div>
+    <!-- 저장된 수취인 목록 드롭다운 -->
+    <div id="recipient-list-panel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;max-height:220px;overflow-y:auto;">
+      <div id="recipient-list-inner"></div>
+    </div>
+    <input type="text" id="recv-name" placeholder="이름 또는 업체명">
+    <label>연락처</label>
+    <input type="tel" id="recv-tel" placeholder="010-0000-0000">
+    <label>주소</label>
+    <textarea id="recv-addr" placeholder="배송받을 주소"></textarea>
+    <label>배송요청사항</label>
+    <input type="text" id="recv-req" placeholder="부재시 문앞, 연락 후 배송 등">
+  </div>
+
+  <!-- 품목 -->
+  <div class="card">
+    <div class="card-title">📋 주문 품목</div>
+    <div id="items-container"></div>
+    <button class="btn-add" onclick="addItem()">＋ 품목 추가</button>
+  </div>
+
+  <!-- 특이사항 -->
+  <div class="card">
+    <div class="card-title">📝 특이사항 / 메모</div>
+    <textarea id="po-memo" placeholder="발주 관련 특이사항이나 메모를 입력하세요" style="min-height:80px;"></textarea>
+  </div>
+
+</div>
+
+<!-- ════ 미리보기 탭 ════ -->
+<div class="tab-panel" id="tab-preview">
+  <div class="preview-scale-wrap">
+    <div id="preview-target" style="min-width:300px;"></div>
+  </div>
+</div>
+
+<!-- ════ 내역 탭 ════ -->
+<div class="tab-panel" id="tab-history">
+  <div id="history-list">
+    <div class="loading">저장된 발주서가 없습니다</div>
+  </div>
+</div>
+
+<!-- ════ 품목관리 탭 ════ -->
+<div class="tab-panel" id="tab-catalog">
+
+  <div class="card">
+    <div class="card-title">➕ 새 품목 등록</div>
+
+    <label>품목명 *</label>
+    <input type="text" id="cat-name" placeholder="예: 파티션, 의자, 컵홀더">
+
+    <label>카테고리</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="cat-category-wrap">
+      <select id="cat-category" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;">
+        <option value="">카테고리 선택</option>
+      </select>
+      <input type="text" id="cat-category-new" placeholder="새 카테고리 입력" style="flex:1;min-width:100px;">
+      <button onclick="addNewCategory()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;">+ 추가</button>
+    </div>
+
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>단위</label>
+        <input type="text" id="cat-unit" placeholder="개" value="개">
+      </div>
+      <div style="flex:2;">
+        <label>규격 기본값</label>
+        <input type="text" id="cat-spec" placeholder="900*700">
+      </div>
+    </div>
+
+    <label>비고 기본값</label>
+    <input type="text" id="cat-note" placeholder="강화유리 포함 등">
+
+    <label style="margin-top:4px;">촬영 각도</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;" id="cat-angles-wrap">
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text);cursor:pointer;">
+        <input type="checkbox" value="정면" checked style="width:auto;margin:0;"> 정면
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text);cursor:pointer;">
+        <input type="checkbox" value="측면" style="width:auto;margin:0;"> 측면
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text);cursor:pointer;">
+        <input type="checkbox" value="후면" style="width:auto;margin:0;"> 후면
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text);cursor:pointer;">
+        <input type="checkbox" value="상세" style="width:auto;margin:0;"> 상세
+      </label>
+    </div>
+
+    <div id="cat-photo-slots" style="margin-bottom:12px;"></div>
+
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-primary" style="flex:2;" onclick="saveCatalogItem()">✅ 품목 저장</button>
+      <button class="btn btn-outline" style="flex:1;" onclick="clearCatalogForm()">취소</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📦 등록 품목 목록</div>
+    <!-- 카테고리 필터 칩 -->
+    <div id="cat-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
+    <div id="catalog-list"></div>
+  </div>
+
+</div>
+
+<!-- ════ 설정 탭 ════ -->
+<div class="tab-panel" id="tab-settings">
+
+  <div class="card">
+    <div class="card-title">🏢 발주처 정보 수정</div>
+    <label>회사명</label>
+    <input type="text" id="set-buyer-name" placeholder="주식회사 지튼">
+    <label>담당자</label>
+    <input type="text" id="set-buyer-manager" placeholder="김종길">
+    <label>연락처</label>
+    <input type="tel" id="set-buyer-tel" placeholder="010-2700-8768">
+    <label>주소</label>
+    <input type="text" id="set-buyer-addr" placeholder="경기 김포시...">
+    <label>사업자번호</label>
+    <input type="text" id="set-buyer-biz" placeholder="000-00-00000">
+    <label>이메일</label>
+    <input type="email" id="set-buyer-email" placeholder="ceo@zytn.co.kr">
+    <button class="btn btn-primary" onclick="saveBuyerSettings()">💾 발주처 정보 저장</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✈️ 텔레그램 자동 전송 설정</div>
+    <label>봇 토큰</label>
+    <input type="text" id="set-tg-token" placeholder="예: 8470986147:AAGvq..." autocomplete="off" style="font-size:12px;">
+    <label>채팅 ID <span style="font-size:11px;color:var(--text2);">(본인 또는 그룹)</span></label>
+    <input type="text" id="set-tg-chatid" placeholder="예: 8632713094" autocomplete="off">
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn btn-primary" onclick="saveTelegramSettings()" style="flex:1;">💾 저장</button>
+      <button class="btn btn-outline" onclick="testTelegramBot()" style="flex:1;">🔍 연결 테스트</button>
+    </div>
+    <div id="tg-status" style="font-size:11px;margin-top:6px;color:var(--text2);min-height:16px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🗄 데이터 관리</div>
+    <button class="btn btn-outline" onclick="exportCatalog()" style="margin-bottom:8px;">📤 품목 JSON 백업</button>
+    <button class="btn btn-outline" onclick="document.getElementById('import-catalog-input').click()" style="margin-bottom:8px;">📥 품목 JSON 복원</button>
+    <input type="file" id="import-catalog-input" accept=".json" style="display:none;" onchange="importCatalog(this)">
+    <button class="btn btn-danger" onclick="clearAllData()">🗑 전체 데이터 초기화</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">ℹ️ 앱 정보</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+      <div><strong style="color:var(--text);">ZYTN 발주서 v2.0</strong></div>
+      <div>단일 HTML 파일 · 인터넷 없이도 동작</div>
+      <div>데이터: 브라우저 localStorage 저장</div>
+      <div style="margin-top:8px;color:var(--accent);">💡 PNG 저장 후 카톡/이메일로 전송 가능</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 하단 버튼바 -->
+<div class="actions-bar" id="actions-bar">
+  <button class="btn btn-outline" style="flex:.7;" onclick="resetForm()">초기화</button>
+  <button class="btn btn-primary" onclick="generatePreview()">발주서 생성 →</button>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<!-- 공급업체 추가/수정 모달 -->
+<div class="modal-overlay" id="supplier-modal" onclick="closeSupplierModal(event)">
+  <div class="modal">
+    <div class="modal-title" id="supplier-modal-title">공급업체 추가</div>
+    <label>회사명 *</label>
+    <input type="text" id="s-name" placeholder="예: 유니컴퍼니">
+    <label>담당자</label>
+    <input type="text" id="s-manager" placeholder="대표님">
+    <label>연락처</label>
+    <input type="tel" id="s-tel" placeholder="010-0000-0000">
+    <label>주소</label>
+    <input type="text" id="s-addr" placeholder="경기도 ...">
+    <label>사업자번호</label>
+    <input type="text" id="s-biz" placeholder="000-00-00000">
+    <label>이메일</label>
+    <input type="email" id="s-email" placeholder="example@email.com">
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:2;" onclick="saveSupplier()">저장</button>
+      <button class="btn btn-outline" style="flex:1;" onclick="closeSupplierModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 공유 모달 -->
+<div class="modal-overlay" id="share-modal" onclick="if(event.target===this)closeShareModal()">
+  <div class="modal" style="max-width:360px;width:92%;">
+    <div class="modal-title">📤 발주서 공유</div>
+    <div id="share-status" style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px;">이미지 생성 중...</div>
+    <div style="width:100%;max-height:180px;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#f5f5f5;margin-bottom:14px;display:flex;align-items:center;justify-content:center;">
+      <img id="share-preview-img" src="" style="width:100%;object-fit:contain;" alt="발주서 미리보기">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button onclick="downloadAndShare()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">💾 PNG 저장 (카톡/텔레그램 전송용)</button>
+      <button onclick="copyImageToClipboard()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:13px;cursor:pointer;font-family:inherit;">📋 이미지 클립보드 복사</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="shareViaEmail()" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:inherit;">📧 이메일</button>
+        <button onclick="shareViaTelegramBot()" id="tg-bot-send-btn" style="flex:1;background:#229ED9;color:#fff;border:none;border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;">✈️ 텔레그램 전송</button>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px;font-size:11px;color:var(--text2);line-height:1.6;border:1px solid var(--border);">
+        <strong style="color:var(--text);">💡 카카오톡으로 보내는 방법</strong><br>
+        1. PNG 저장 버튼으로 이미지 저장<br>
+        2. 카카오톡 채팅창 열기<br>
+        3. 파일 첨부 → 저장된 발주서 PNG 선택
+      </div>
+    </div>
+    <button onclick="closeShareModal()" style="margin-top:10px;width:100%;background:none;border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text2);font-size:13px;cursor:pointer;font-family:inherit;">닫기</button>
+  </div>
+</div>
+
+<!-- 미리보기용 숨겨진 렌더 영역 -->
+<div id="preview-wrapper"></div>
+
+<script>
+// ════════════════════════════════════════
+// 데이터 정의
+// ════════════════════════════════════════
+
+// 기본 공급업체 목록
+const DEFAULT_SUPPLIERS = [
+  { id: 'uni', name: '유니컴퍼니', manager: '대표님', tel: '010-4089-2500', addr: '경기도 광주시 곤지암읍 열미길 46-10', biz: '874-01-01315', email: '' },
+  { id: 'jeil', name: '제일퍼니처', manager: '대표님', tel: '010-3653-6914', addr: '전북 전주시 동부대로989', biz: '', email: '' },
+  { id: 'samwoo', name: '삼우산업', manager: '대표님', tel: '010-3300-2385', addr: '경기도 김포시 대곶남로 627', biz: '', email: '' },
+  { id: 'kraft', name: '크라프트코리아', manager: '이용민 실장', tel: '010-8725-9181', addr: '인천광역시 서구 사월로 19-2, 왕길동', biz: '', email: '' },
+  { id: 'hansung', name: '한성', manager: '송시은 대표', tel: '010-5264-8345', addr: '경남 김해시 상동면 묵방로109번길 11', biz: '', email: '' }
+];
+
+// 기본 발주처 정보
+const DEFAULT_BUYER = {
+  name: '주식회사 지튼',
+  manager: '김종길',
+  tel: '010-2700-8768',
+  addr: '경기 김포시 김포한강9로75번길190,715',
+  biz: '348-86-03276',
+  email: 'ceo@zytn.co.kr'
+};
+
+// 기본 품목 카탈로그
+const DEFAULT_CATALOG = [
+  { id: 'sys_desk',     name: '시스템책상',  unit: '개', category: '책상',    defaultPhoto: null, angles: ['정면', '측면'] },
+  { id: 'desk',         name: '일반책상',   unit: '개', category: '책상',    defaultPhoto: null, angles: ['정면', '측면'] },
+  { id: 'back_panel',   name: '뒷판',      unit: '개', category: '책상',    defaultPhoto: null, angles: ['정면', '측면'] },
+  { id: 'glass',        name: '강화유리',   unit: '장', category: '책상',    defaultPhoto: null, angles: ['정면'] },
+  { id: 'caster',       name: '캐스터',     unit: '개', category: '의자부품',  defaultPhoto: null, angles: ['정면'] },
+  { id: 'headset_hook', name: '헤드셋걸이', unit: '개', category: '기타',    defaultPhoto: null, angles: ['정면', '측면'] },
+  { id: 'speaker',      name: '스피커(서스)', unit: '개', category: '기타',    defaultPhoto: null, angles: ['정면', '측면'] },
+  { id: 'custom',       name: '직접입력',   unit: '개', category: '기타',    defaultPhoto: null, angles: ['정면', '측면', '후면'] }
+];
+
+// 기본 카테고리 목록 (사용자 추가 가능)
+const DEFAULT_CATEGORIES = ['전체', '책상', '의자', '의자부품', '컴퓨터케이스', '기타'];
+let CATEGORIES = [...DEFAULT_CATEGORIES];
+
+// ════════════════════════════════════════
+// 앱 상태
+// ════════════════════════════════════════
+let SUPPLIERS = [];
+let BUYER = { ...DEFAULT_BUYER };
+let CATALOG = [];
+let itemPhotoSlots = {};
+let itemCount = 0;
+let selectedSupplierIdx = 0;
+let poHistory = [];
+let catEditPhotos = {};
+let catEditId = null;
+let editingSupplierIdx = null;
+let currentCatFilter = '전체';  // 카탈로그 필터 상태
+let TG_TOKEN = '';             // 텔레그램 봇 토큰
+let TG_CHAT_ID = '';           // 텔레그램 채팅 ID
+let _shareDataUrl = null;      // 공유용 이미지 data URL 캐시
+let RECIPIENTS = [];           // 저장된 수취인 목록
+let _sharePoNum = '';          // 공유용 발주번호 캐시
+
+// ════════════════════════════════════════
+// 사진 압축 유틸리티
+// ════════════════════════════════════════
+const MAX_PHOTO_BYTES = 500 * 1024; // 500KB (base64 기준 ~667KB)
+const MAX_PHOTO_SIZE  = 1200;       // 최대 가로/세로 픽셀
+
+/**
+ * 이미지 파일을 읽어 500KB 이하 base64 문자열로 압축 반환
+ * @param {File} file
+ * @returns {Promise<string>} base64 dataURL
+ */
+function compressPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        // 1단계: 최대 크기 제한
+        let { width, height } = img;
+        if (width > MAX_PHOTO_SIZE || height > MAX_PHOTO_SIZE) {
+          const ratio = Math.min(MAX_PHOTO_SIZE / width, MAX_PHOTO_SIZE / height);
+          width  = Math.round(width  * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // 2단계: 품질을 낮춰가며 500KB 이하가 될 때까지 반복 압축
+        let quality = 0.85;
+        let dataURL = canvas.toDataURL('image/jpeg', quality);
+
+        while (dataURL.length > MAX_PHOTO_BYTES * 1.37 && quality > 0.1) {
+          quality = Math.max(0.1, quality - 0.1);
+          dataURL = canvas.toDataURL('image/jpeg', quality);
+        }
+
+        // 3단계: 품질을 최저로 해도 크면 해상도도 추가 축소
+        if (dataURL.length > MAX_PHOTO_BYTES * 1.37) {
+          const scale = Math.sqrt(MAX_PHOTO_BYTES * 1.37 / dataURL.length);
+          canvas.width  = Math.round(width  * scale);
+          canvas.height = Math.round(height * scale);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          dataURL = canvas.toDataURL('image/jpeg', 0.7);
+        }
+
+        const origKB  = Math.round(file.size / 1024);
+        const finalKB = Math.round(dataURL.length * 0.75 / 1024);
+        if (origKB > finalKB) {
+          showToast(`📷 사진 압축: ${origKB}KB → ${finalKB}KB`, 'success');
+        }
+        resolve(dataURL);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ════════════════════════════════════════
+// 초기화
+// ════════════════════════════════════════
+function init() {
+  loadSettings();
+  loadCatalog();
+  initHistory();
+  genPoNum();
+  setTodayDate();
+  renderSuppliers();
+  renderBuyerInfo();
+  addItem();
+  renderHistory();
+  renderCatalogList();
+  renderCatalogAngles();
+  loadSettingsForm();
+
+  // 카테고리 select 초기화
+  renderCategorySelect('');
+  renderCatFilterChips();
+
+  // 각도 체크박스 이벤트
+  document.querySelectorAll('#cat-angles-wrap input').forEach(cb => {
+    cb.addEventListener('change', renderCatalogAngles);
+  });
+
+  // JSON 파일 자동 로드 시도
+  tryLoadJsonFile();
+}
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('zytn_suppliers') || 'null');
+    SUPPLIERS = (saved && Array.isArray(saved) && saved.length > 0) ? saved : JSON.parse(JSON.stringify(DEFAULT_SUPPLIERS));
+  } catch (e) {
+    SUPPLIERS = JSON.parse(JSON.stringify(DEFAULT_SUPPLIERS));
+  }
+  try {
+    const savedBuyer = JSON.parse(localStorage.getItem('zytn_buyer') || 'null');
+    BUYER = (savedBuyer && savedBuyer.name) ? savedBuyer : { ...DEFAULT_BUYER };
+  } catch (e) {
+    BUYER = { ...DEFAULT_BUYER };
+  }
+  // 텔레그램 설정 로드
+  try {
+    const tg = JSON.parse(localStorage.getItem('zytn_telegram') || 'null');
+    if (tg) { TG_TOKEN = tg.token || ''; TG_CHAT_ID = tg.chatId || ''; }
+  } catch (e) {}
+  // 수취인 목록 로드
+  try {
+    const saved = JSON.parse(localStorage.getItem('zytn_recipients') || '[]');
+    RECIPIENTS = Array.isArray(saved) ? saved : [];
+  } catch (e) { RECIPIENTS = []; }
+}
+
+function loadCatalog() {
+  CATALOG = JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+  const custom = JSON.parse(localStorage.getItem('zytn_catalog') || '[]');
+  custom.forEach(item => {
+    item.isCustom = true;
+    const idx = CATALOG.findIndex(c => c.id === item.id);
+    if (idx >= 0) CATALOG[idx] = item;
+    else CATALOG.splice(CATALOG.length - 1, 0, item);
+  });
+}
+
+function initHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('zytn_po_history') || '[]');
+    // 유효한 데이터만 필터링 (supplier, ship, items 필드 필수)
+    poHistory = raw.filter(h => h && h.supplier && h.ship && Array.isArray(h.items));
+  } catch (e) {
+    poHistory = [];
+  }
+}
+
+function tryLoadJsonFile() {
+  // HTTP 서버 환경에서 JSON 파일 자동 로드
+  fetch('./품목목록_백업.json')
+    .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
+    .then(data => {
+      if (!Array.isArray(data) || !data.length) return;
+
+      let added = 0, updated = 0;
+
+      data.forEach(item => {
+        if (!item.id || !item.name) return;
+        item.isCustom = true;
+
+        // photos 정규화: 최상위 photos 객체 또는 defaultPhoto → photos['정면']
+        if (!item.photos || typeof item.photos !== 'object') item.photos = {};
+        if (item.defaultPhoto && !item.photos['정면']) {
+          item.photos['정면'] = item.defaultPhoto;
+        }
+
+        // angles 정규화: photos 키 기반으로 보완
+        if (!Array.isArray(item.angles) || item.angles.length === 0) {
+          item.angles = Object.keys(item.photos).filter(k => item.photos[k]);
+          if (item.angles.length === 0) item.angles = ['정면'];
+        }
+
+        const idx = CATALOG.findIndex(c => c.id === item.id);
+        if (idx >= 0) {
+          // 기존 항목 업데이트 (사진 포함 항상 덮어씀)
+          CATALOG[idx] = { ...CATALOG[idx], ...item };
+          updated++;
+        } else {
+          // 새 항목 추가 (직접입력 앞에 삽입)
+          CATALOG.splice(CATALOG.length - 1, 0, item);
+          added++;
+        }
+      });
+
+      // 카테고리 select 및 필터 칩 갱신
+      renderCategorySelect('');
+      renderCatFilterChips();
+
+      // 카탈로그 목록 갱신
+      renderCatalogList();
+
+      // ★ 핵심: 모든 기존 품목 드롭다운 갱신 + 사진 슬롯 재렌더링
+      document.querySelectorAll('.item-row').forEach(row => {
+        const sel = row.querySelector('.item-cat');
+        if (!sel) return;
+        const curId = sel.value;
+        // 드롭다운 옵션 재구성
+        sel.innerHTML = buildCatOptions(curId);
+        sel.value = curId;
+        // 현재 선택된 품목의 사진 슬롯 재렌더링
+        const itemId = parseInt(row.id.replace('item-', ''));
+        const cat = getCatalogItem(curId);
+        if (cat && cat.photos && Object.keys(cat.photos).length > 0) {
+          // 사용자가 직접 업로드한 사진이 없는 경우에만 카탈로그 사진 적용
+          if (!itemPhotoSlots[itemId] || Object.keys(itemPhotoSlots[itemId]).length === 0) {
+            itemPhotoSlots[itemId] = { ...cat.photos };
+          }
+        }
+        renderPhotoSlots(itemId, cat ? (cat.angles || ['정면']) : ['정면']);
+      });
+
+      const total = added + updated;
+      if (total > 0) {
+        showToast(`✅ JSON 품목 로드: ${added}개 신규, ${updated}개 갱신 (사진 포함)`, 'success');
+      }
+    })
+    .catch(() => {
+      // file:// 환경이거나 JSON 없음 - 정상
+    });
+}
+
+// ════════════════════════════════════════
+// 발주번호 / 날짜
+// ════════════════════════════════════════
+function genPoNum() {
+  const now = new Date();
+  const d = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  document.getElementById('po-num').value = `PO-${d}-${seq}`;
+}
+
+function setTodayDate() {
+  const now = new Date();
+  document.getElementById('po-date').value = now.toLocaleDateString('ko-KR', {
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+}
+
+// ════════════════════════════════════════
+// 공급업체
+// ════════════════════════════════════════
+function renderSuppliers() {
+  const el = document.getElementById('supplier-list');
+  el.innerHTML = SUPPLIERS.map((s, i) => `
+    <div class="supplier-card ${i === selectedSupplierIdx ? 'active' : ''}" onclick="selectSupplier(${i})">
+      <div class="s-name">${s.name}</div>
+      <div class="s-info">${s.manager} · ${s.tel}</div>
+      <div class="s-info">${s.addr}</div>
+      <div class="s-actions" onclick="event.stopPropagation()">
+        <button class="s-edit-btn" onclick="openSupplierModal(${i})">수정</button>
+        ${i >= DEFAULT_SUPPLIERS.length ? `<button class="s-del-btn" onclick="deleteSupplier(${i})">삭제</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectSupplier(idx) {
+  selectedSupplierIdx = idx;
+  document.querySelectorAll('.supplier-card').forEach((c, i) => {
+    c.classList.toggle('active', i === idx);
+  });
+}
+
+function openSupplierModal(idx) {
+  editingSupplierIdx = idx;
+  const modal = document.getElementById('supplier-modal');
+  const title = document.getElementById('supplier-modal-title');
+
+  if (idx !== null && SUPPLIERS[idx]) {
+    const s = SUPPLIERS[idx];
+    title.textContent = '공급업체 수정';
+    document.getElementById('s-name').value = s.name;
+    document.getElementById('s-manager').value = s.manager;
+    document.getElementById('s-tel').value = s.tel;
+    document.getElementById('s-addr').value = s.addr;
+    document.getElementById('s-biz').value = s.biz || '';
+    document.getElementById('s-email').value = s.email || '';
+  } else {
+    title.textContent = '공급업체 추가';
+    document.getElementById('s-name').value = '';
+    document.getElementById('s-manager').value = '';
+    document.getElementById('s-tel').value = '';
+    document.getElementById('s-addr').value = '';
+    document.getElementById('s-biz').value = '';
+    document.getElementById('s-email').value = '';
+  }
+
+  modal.classList.add('show');
+}
+
+function closeSupplierModal(e) {
+  if (e && e.target !== document.getElementById('supplier-modal')) return;
+  document.getElementById('supplier-modal').classList.remove('show');
+}
+
+function saveSupplier() {
+  const name = document.getElementById('s-name').value.trim();
+  if (!name) { showToast('⚠️ 회사명을 입력하세요', 'error'); return; }
+
+  const supplier = {
+    id: editingSupplierIdx !== null ? SUPPLIERS[editingSupplierIdx].id : 'custom_' + Date.now(),
+    name,
+    manager: document.getElementById('s-manager').value.trim(),
+    tel: document.getElementById('s-tel').value.trim(),
+    addr: document.getElementById('s-addr').value.trim(),
+    biz: document.getElementById('s-biz').value.trim(),
+    email: document.getElementById('s-email').value.trim(),
+  };
+
+  if (editingSupplierIdx !== null) {
+    SUPPLIERS[editingSupplierIdx] = supplier;
+  } else {
+    SUPPLIERS.push(supplier);
+  }
+
+  localStorage.setItem('zytn_suppliers', JSON.stringify(SUPPLIERS));
+  renderSuppliers();
+  document.getElementById('supplier-modal').classList.remove('show');
+  showToast('✅ 공급업체 저장 완료', 'success');
+}
+
+function deleteSupplier(idx) {
+  if (!confirm(`'${SUPPLIERS[idx].name}'을 삭제할까요?`)) return;
+  SUPPLIERS.splice(idx, 1);
+  if (selectedSupplierIdx >= SUPPLIERS.length) selectedSupplierIdx = 0;
+  localStorage.setItem('zytn_suppliers', JSON.stringify(SUPPLIERS));
+  renderSuppliers();
+  showToast('삭제 완료');
+}
+
+// ════════════════════════════════════════
+// 발주처 정보
+// ════════════════════════════════════════
+function renderBuyerInfo() {
+  const el = document.getElementById('buyer-info-display');
+  el.innerHTML = `
+    <strong style="color:var(--text);">${BUYER.name}</strong> · ${BUYER.manager} · ${BUYER.tel}<br>
+    ${BUYER.addr}<br>
+    사업자 ${BUYER.biz} · ${BUYER.email}
+  `;
+}
+
+function loadSettingsForm() {
+  document.getElementById('set-buyer-name').value = BUYER.name;
+  document.getElementById('set-buyer-manager').value = BUYER.manager;
+  document.getElementById('set-buyer-tel').value = BUYER.tel;
+  document.getElementById('set-buyer-addr').value = BUYER.addr;
+  document.getElementById('set-buyer-biz').value = BUYER.biz;
+  document.getElementById('set-buyer-email').value = BUYER.email;
+  // 텔레그램 설정 폼 초기화
+  document.getElementById('set-tg-token').value = TG_TOKEN || '';
+  document.getElementById('set-tg-chatid').value = TG_CHAT_ID || '';
+}
+
+function saveBuyerSettings() {
+  BUYER = {
+    name: document.getElementById('set-buyer-name').value.trim() || DEFAULT_BUYER.name,
+    manager: document.getElementById('set-buyer-manager').value.trim() || DEFAULT_BUYER.manager,
+    tel: document.getElementById('set-buyer-tel').value.trim() || DEFAULT_BUYER.tel,
+    addr: document.getElementById('set-buyer-addr').value.trim() || DEFAULT_BUYER.addr,
+    biz: document.getElementById('set-buyer-biz').value.trim() || DEFAULT_BUYER.biz,
+    email: document.getElementById('set-buyer-email').value.trim() || DEFAULT_BUYER.email,
+  };
+  localStorage.setItem('zytn_buyer', JSON.stringify(BUYER));
+  renderBuyerInfo();
+  showToast('✅ 발주처 정보 저장 완료', 'success');
+}
+
+// ════════════════════════════════════════
+// 칩 선택
+// ════════════════════════════════════════
+function selectChip(el, group) {
+  const container = document.getElementById(`${group}-chips`);
+  container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  if (group === 'deadline') {
+    const custom = document.getElementById('deadline-custom');
+    custom.style.display = el.textContent === '직접입력' ? 'block' : 'none';
+  }
+}
+
+function getActiveChip(group) {
+  const active = document.querySelector(`#${group}-chips .chip.active`);
+  if (!active) return '';
+  if (active.textContent === '직접입력') {
+    return document.getElementById('deadline-custom').value;
+  }
+  return active.textContent;
+}
+
+// ════════════════════════════════════════
+// 카테고리 관리
+// ════════════════════════════════════════
+
+/** 카테고리 목록에서 중복 제거 후 정렬된 유니크 목록 반환 (전체 제외) */
+function getUsedCategories() {
+  const cats = new Set();
+  CATALOG.forEach(c => { if (c.category) cats.add(c.category); });
+  // CATEGORIES 순서를 유지하면서 실제 사용된 것만
+  return CATEGORIES.filter(c => c !== '전체' && cats.has(c))
+    .concat([...cats].filter(c => !CATEGORIES.includes(c)));
+}
+
+/** 카테고리 select 드롭다운 옵션 렌더링 */
+function renderCategorySelect(selectedCat) {
+  const sel = document.getElementById('cat-category');
+  if (!sel) return;
+  const cats = CATEGORIES.filter(c => c !== '전체');
+  sel.innerHTML = '<option value="">카테고리 선택</option>' +
+    cats.map(c => `<option value="${c}" ${c === selectedCat ? 'selected' : ''}>${c}</option>`).join('');
+}
+
+/** 카테고리 필터 칩 렌더링 */
+function renderCatFilterChips() {
+  const el = document.getElementById('cat-filter-chips');
+  if (!el) return;
+  const usedCats = getUsedCategories();
+  const chips = ['전체', ...usedCats];
+  el.innerHTML = chips.map(c => `
+    <div class="chip ${c === currentCatFilter ? 'active' : ''}"
+      onclick="setCatFilter('${c}')"
+      style="font-size:12px;padding:5px 12px;">${c}</div>
+  `).join('');
+}
+
+/** 카테고리 필터 적용 */
+function setCatFilter(cat) {
+  currentCatFilter = cat;
+  renderCatFilterChips();
+  renderCatalogList();
+}
+
+/** 새 카테고리 추가 */
+function addNewCategory() {
+  const input = document.getElementById('cat-category-new');
+  const newCat = input.value.trim();
+  if (!newCat) { showToast('⚠️ 카테고리명을 입력하세요', 'error'); return; }
+  if (CATEGORIES.includes(newCat)) { showToast('⚠️ 이미 존재하는 카테고리입니다'); return; }
+  // '기타' 앞에 삽입
+  const idx = CATEGORIES.indexOf('기타');
+  if (idx >= 0) CATEGORIES.splice(idx, 0, newCat);
+  else CATEGORIES.push(newCat);
+  input.value = '';
+  renderCategorySelect(newCat);
+  document.getElementById('cat-category').value = newCat;
+  renderCatFilterChips();
+  showToast(`✅ '${newCat}' 카테고리 추가`, 'success');
+}
+
+/** 카테고리별 optgroup으로 드롭다운 옵션 생성 */
+function buildCatOptions(selectedId) {
+  const groups = {};
+  CATALOG.forEach(c => {
+    const cat = c.category || '기타';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(c);
+  });
+  // 카테고리 순서: CATEGORIES 순서 유지
+  const orderedCats = CATEGORIES.filter(c => c !== '전체' && groups[c]);
+  // CATEGORIES에 없는 카테고리도 포함
+  Object.keys(groups).forEach(c => { if (!orderedCats.includes(c)) orderedCats.push(c); });
+
+  return orderedCats.map(cat => {
+    const items = groups[cat];
+    if (items.length === 1 && items[0].id === 'custom') {
+      // '직접입력'은 개별 option으로
+      return `<option value="${items[0].id}" ${selectedId === items[0].id ? 'selected' : ''}>${items[0].name}</option>`;
+    }
+    const opts = items.map(c =>
+      `<option value="${c.id}" ${selectedId === c.id ? 'selected' : ''}>${c.name}</option>`
+    ).join('');
+    return `<optgroup label="— ${cat} —">${opts}</optgroup>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════
+// 품목 관리
+// ════════════════════════════════════════
+function getCatalogItem(id) {
+  return CATALOG.find(c => c.id === id) || CATALOG[CATALOG.length - 1];
+}
+
+function addItem(presetId) {
+  itemCount++;
+  const id = itemCount;
+  const container = document.getElementById('items-container');
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.id = `item-${id}`;
+  itemPhotoSlots[id] = {};
+
+  // 카테고리별 optgroup 생성
+  const catOptions = buildCatOptions(presetId);
+
+  div.innerHTML = `
+    <div class="item-num">NO. ${container.children.length + 1}</div>
+    <button class="del-btn" onclick="removeItem('item-${id}')">×</button>
+
+    <label>품목 선택</label>
+    <select class="item-cat" onchange="onCatChange(${id}, this.value)">
+      ${catOptions}
+    </select>
+
+    <div class="item-name-wrap" style="display:none;">
+      <label>품목명 직접입력</label>
+      <input type="text" class="item-name-custom" placeholder="품목명을 입력하세요">
+    </div>
+
+    <div class="row2" style="margin-bottom:10px;">
+      <div style="flex:1.5;">
+        <label>규격/모델명</label>
+        <input type="text" class="item-spec" placeholder="900*700">
+      </div>
+      <div style="flex:.7;">
+        <label>수량</label>
+        <input type="number" class="item-qty" placeholder="1" min="1" value="1" style="text-align:center;">
+      </div>
+      <div style="flex:.6;">
+        <label>단위</label>
+        <input type="text" class="item-unit" placeholder="개" value="개" style="text-align:center;">
+      </div>
+    </div>
+
+    <label>비고 / 특이사항</label>
+    <input type="text" class="item-note" placeholder="색상, 옵션, 특이사항 등">
+
+    <div class="item-photos-section" style="margin-top:10px;">
+      <div class="item-photo-slots" id="photo-slots-${id}"></div>
+    </div>
+  `;
+  container.appendChild(div);
+
+  const initId = presetId || CATALOG[0].id;
+  div.querySelector('.item-cat').value = initId;
+  onCatChange(id, initId);
+  reNumberItems();
+}
+
+function onCatChange(id, catId) {
+  const cat = getCatalogItem(catId);
+  const div = document.getElementById(`item-${id}`);
+  if (!div) return;
+
+  const nameWrap = div.querySelector('.item-name-wrap');
+  nameWrap.style.display = catId === 'custom' ? 'block' : 'none';
+
+  div.querySelector('.item-unit').value = cat.unit || '개';
+
+  // 품목 변경 시 사진 슬롯 완전 초기화 후 카탈로그 사진 적용
+  itemPhotoSlots[id] = {};
+  if (cat.photos && Object.keys(cat.photos).length > 0) {
+    itemPhotoSlots[id] = { ...cat.photos };
+  } else if (cat.defaultPhoto) {
+    itemPhotoSlots[id]['정면'] = cat.defaultPhoto;
+  }
+
+  renderPhotoSlots(id, cat.angles || ['정면']);
+}
+
+function renderPhotoSlots(id, angles) {
+  const el = document.getElementById(`photo-slots-${id}`);
+  if (!el) return;
+  el.innerHTML = (angles || ['정면']).map(angle => {
+    const src = itemPhotoSlots[id]?.[angle] || null;
+    return `
+      <div class="angle-slot">
+        <div class="angle-slot-header">
+          <span class="angle-label">${angle}${angle === '정면' ? ' (기본)' : ''}</span>
+          ${src ? `<button class="angle-del-btn" onclick="clearAnglePhoto(${id},'${angle}')">× 삭제</button>` : ''}
+        </div>
+        ${src
+          ? `<img src="${src}" class="angle-photo-img" onclick="triggerAngleUpload(${id},'${angle}')" style="cursor:pointer;" title="클릭하여 교체">`
+          : `<div class="angle-upload-btn" onclick="triggerAngleUpload(${id},'${angle}')">
+               📷 ${angle} 사진 추가 (탭하여 업로드)
+             </div>`
+        }
+        <input type="file" id="angle-input-${id}-${angle}" accept="image/*"
+          style="display:none;" onchange="loadAnglePhoto(${id},'${angle}',this)">
+      </div>
+    `;
+  }).join('');
+}
+
+function triggerAngleUpload(id, angle) {
+  document.getElementById(`angle-input-${id}-${angle}`)?.click();
+}
+
+async function loadAnglePhoto(id, angle, input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  try {
+    const dataURL = await compressPhoto(file);
+    if (!itemPhotoSlots[id]) itemPhotoSlots[id] = {};
+    itemPhotoSlots[id][angle] = dataURL;
+    const div = document.getElementById(`item-${id}`);
+    const cat = getCatalogItem(div.querySelector('.item-cat').value);
+    renderPhotoSlots(id, cat.angles || ['정면']);
+  } catch (e) {
+    showToast('❌ 사진 로드 실패', 'error');
+  }
+}
+
+function clearAnglePhoto(id, angle) {
+  if (itemPhotoSlots[id]) delete itemPhotoSlots[id][angle];
+  const div = document.getElementById(`item-${id}`);
+  const cat = getCatalogItem(div.querySelector('.item-cat').value);
+  renderPhotoSlots(id, cat.angles || ['정면']);
+}
+
+function removeItem(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  const numId = parseInt(id.replace('item-', ''));
+  delete itemPhotoSlots[numId];
+  reNumberItems();
+}
+
+function reNumberItems() {
+  document.querySelectorAll('.item-num').forEach((el, i) => {
+    el.textContent = `NO. ${i + 1}`;
+  });
+}
+
+function getItems() {
+  const rows = document.querySelectorAll('.item-row');
+  return Array.from(rows).map((r, i) => {
+    const catId = r.querySelector('.item-cat').value;
+    const cat = getCatalogItem(catId);
+    const customName = r.querySelector('.item-name-custom')?.value || '';
+    const name = catId === 'custom' ? customName : cat.name;
+    const id = parseInt(r.id.replace('item-', ''));
+    return {
+      no: i + 1,
+      name,
+      spec: r.querySelector('.item-spec').value,
+      qty: r.querySelector('.item-qty').value || '1',
+      unit: r.querySelector('.item-unit').value || '개',
+      note: r.querySelector('.item-note').value,
+      photos: itemPhotoSlots[id] || {},
+    };
+  }).filter(r => r.name.trim());
+}
+
+function refreshItemDropdowns() {
+  document.querySelectorAll('.item-row').forEach(row => {
+    const sel = row.querySelector('.item-cat');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = buildCatOptions(cur);
+    sel.value = cur;
+  });
+}
+
+// ════════════════════════════════════════
+// 발주서 HTML 생성
+// ════════════════════════════════════════
+function buildPoHTML(data) {
+  const supplier = data.supplier;
+
+  const itemsHTML = data.items.map(item => `
+    <tr>
+      <td style="text-align:center;width:36px;font-weight:700;">${item.no}</td>
+      <td style="font-weight:600;">${item.name}</td>
+      <td style="width:160px;color:#555;">${item.spec || '-'}</td>
+      <td style="text-align:center;width:70px;font-weight:700;">${item.qty} ${item.unit}</td>
+      <td style="width:140px;color:#666;">${item.note || '-'}</td>
+    </tr>
+  `).join('') + Array(Math.max(0, 5 - data.items.length)).fill(`
+    <tr><td style="height:32px;text-align:center;color:#ddd;">-</td><td></td><td></td><td></td><td></td></tr>
+  `).join('');
+
+  // 품목별 사진 섹션
+  const photosItems = data.items.filter(item => Object.keys(item.photos).length > 0);
+  const itemPhotosHTML = photosItems.map(item => `
+    <div class="po-photo-item">
+      <div class="po-photo-item-title">[${item.no}] ${item.name}${item.spec ? ' / ' + item.spec : ''}</div>
+      <div class="po-photos-grid">
+        ${Object.entries(item.photos).map(([angle, src]) => `
+          <div class="photo-cell">
+            <img src="${src}" alt="${angle}">
+            <div class="photo-caption">${angle}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  const itemPhotosSection = itemPhotosHTML ? `
+    <div class="po-photos">
+      <h3>PRODUCT PHOTOS · 품목 사진</h3>
+      ${itemPhotosHTML}
+    </div>
+  ` : '';
+
+  const memoSection = data.memo ? `
+    <div style="border:1px solid #ddd;padding:12px;margin-bottom:16px;background:#fffef5;">
+      <div style="font-size:10px;letter-spacing:1.5px;color:#888;font-weight:700;margin-bottom:6px;text-transform:uppercase;">MEMO · 특이사항</div>
+      <div style="font-size:12px;color:#333;line-height:1.6;">${data.memo}</div>
+    </div>
+  ` : '';
+
+  return `
+    <div class="po-doc" id="po-doc-render">
+      <div class="po-header">
+        <div class="po-title-block">
+          <div class="po-title">발 주 서</div>
+          <div class="po-subtitle">PURCHASE ORDER · ZYTN</div>
+        </div>
+        <div class="po-meta">
+          <table>
+            <tr><td>발주번호</td><td style="color:#f0a500;">${data.poNum}</td></tr>
+            <tr><td>발주일자</td><td>${data.date}</td></tr>
+            <tr><td>납기요청일</td><td style="color:#e53;">${data.deadline}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="po-parties">
+        <div class="po-party">
+          <h3>SUPPLIER · 공급업체</h3>
+          <table>
+            <tr><td>회사명</td><td><strong>${supplier.name}</strong></td></tr>
+            <tr><td>담당자</td><td>${supplier.manager || '-'}</td></tr>
+            <tr><td>연락처</td><td>${supplier.tel || '-'}</td></tr>
+            <tr><td>주소</td><td>${supplier.addr || '-'}</td></tr>
+            ${supplier.biz ? `<tr><td>사업자</td><td>${supplier.biz}</td></tr>` : ''}
+          </table>
+        </div>
+        <div class="po-party">
+          <h3>BUYER · 발주처</h3>
+          <table>
+            <tr><td>회사명</td><td><strong>${BUYER.name}</strong></td></tr>
+            <tr><td>담당자</td><td>${BUYER.manager}</td></tr>
+            <tr><td>연락처</td><td>${BUYER.tel}</td></tr>
+            <tr><td>주소</td><td>${BUYER.addr}</td></tr>
+            <tr><td>사업자</td><td>${BUYER.biz}</td></tr>
+            <tr><td>이메일</td><td>${BUYER.email}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="po-ship">
+        <h3>SHIP TO · 받는사람</h3>
+        <div class="row">
+          <div class="field"><span>배송유형</span><span><strong>${data.ship.type}</strong></span></div>
+          <div class="field"><span>수취인명</span><span><strong>${data.ship.name}</strong></span></div>
+          <div class="field"><span>연락처</span><span>${data.ship.tel || '-'}</span></div>
+        </div>
+        ${data.ship.addr ? `<div class="field" style="margin-top:6px;"><span>주소</span><span>${data.ship.addr}</span></div>` : ''}
+        ${data.ship.req ? `<div class="field" style="margin-top:4px;"><span>요청사항</span><span style="color:#e53;">${data.ship.req}</span></div>` : ''}
+      </div>
+
+      <div class="po-items">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:36px;">NO</th>
+              <th>품목명</th>
+              <th style="width:160px;">규격/모델명</th>
+              <th style="width:70px;text-align:center;">수량</th>
+              <th style="width:140px;">비고</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHTML}</tbody>
+        </table>
+      </div>
+
+      ${memoSection}
+      ${itemPhotosSection}
+
+      <div class="po-footer">
+        <div class="po-footer-text">본 발주서는 ${BUYER.name}이 발행한 공식 문서입니다.</div>
+        <div class="po-seal">지 튼</div>
+      </div>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════
+// 미리보기 생성
+// ════════════════════════════════════════
+function generatePreview() {
+  const items = getItems();
+  if (!items.length) { showToast('⚠️ 품목을 1개 이상 입력하세요', 'error'); return; }
+  if (!document.getElementById('recv-name').value.trim()) {
+    showToast('⚠️ 수취인명을 입력하세요', 'error'); return;
+  }
+
+  const data = collectData();
+  const html = buildPoHTML(data);
+
+  const target = document.getElementById('preview-target');
+  target.innerHTML = html;
+
+  // 모바일 스케일 조정
+  const doc = target.querySelector('.po-doc');
+  if (doc) {
+    const vw = window.innerWidth - 28;
+    const scale = Math.min(1, vw / 800);
+    doc.style.transform = `scale(${scale})`;
+    doc.style.transformOrigin = 'top left';
+    // scrollHeight를 scale 적용 후 높이로 설정
+    requestAnimationFrame(() => {
+      target.style.height = (doc.scrollHeight * scale + 60) + 'px';
+    });
+  }
+
+  switchTab('preview');
+  saveToHistory(data);
+}
+
+function collectData() {
+  const now = new Date();
+  return {
+    poNum: document.getElementById('po-num').value,
+    date: now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+    deadline: getActiveChip('deadline'),
+    supplier: SUPPLIERS[selectedSupplierIdx] || SUPPLIERS[0],
+    ship: {
+      type: getActiveChip('shiptype'),
+      name: document.getElementById('recv-name').value,
+      tel: document.getElementById('recv-tel').value,
+      addr: document.getElementById('recv-addr').value,
+      req: document.getElementById('recv-req').value,
+    },
+    items: getItems(),
+    memo: document.getElementById('po-memo').value,
+    createdAt: now.toISOString(),
+  };
+}
+
+// ════════════════════════════════════════
+// 이미지 저장 / 공유
+// ════════════════════════════════════════
+function saveImage() {
+  const doc = document.getElementById('po-doc-render');
+  if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
+
+  showToast('📸 이미지 저장 중...');
+
+  const origTransform = doc.style.transform;
+  doc.style.transform = 'none';
+
+  html2canvas(doc, {
+    scale: 2,
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    logging: false,
+    allowTaint: true,
+  }).then(canvas => {
+    doc.style.transform = origTransform;
+    const link = document.createElement('a');
+    const poNum = document.getElementById('po-num').value;
+    link.download = `발주서_${poNum}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('✅ 이미지 저장 완료!', 'success');
+  }).catch(err => {
+    doc.style.transform = origTransform;
+    console.error(err);
+    showToast('저장 오류. 다시 시도해주세요.', 'error');
+  });
+}
+
+// 공유용 이미지 dataURL 캐시
+// _shareDataUrl, _sharePoNum 전역 변수는 상단에서 선언
+
+function shareImage() {
+  const doc = document.getElementById('po-doc-render');
+  if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
+
+  // file:// 환경이면 Web Share API 사용 불가 → 바로 모달
+  const isFileProtocol = location.protocol === 'file:';
+  // 모바일(Web Share API 지원)이면 바로 공유 (단, file:// 환경 제외)
+  if (!isFileProtocol && navigator.share && navigator.canShare) {
+    showToast('📤 공유 준비 중...');
+    const origTransform = doc.style.transform;
+    doc.style.transform = 'none';
+    html2canvas(doc, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true })
+      .then(async canvas => {
+        doc.style.transform = origTransform;
+        canvas.toBlob(async blob => {
+          const poNum = document.getElementById('po-num').value;
+          const file = new File([blob], `발주서_${poNum}.png`, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({ title: `발주서 ${poNum}`, text: `ZYTN 발주서 ${poNum}`, files: [file] });
+              showToast('✅ 공유 완료!', 'success');
+            } catch (e) {
+              if (e.name !== 'AbortError') openShareModal();
+            }
+          } else { openShareModal(); }
+        }, 'image/png');
+      }).catch(() => { doc.style.transform = origTransform; openShareModal(); });
+    return;
+  }
+  // 데스크톱(file:// 포함): 공유 모달 열기
+  openShareModal();
+}
+
+function openShareModal() {
+  const doc = document.getElementById('po-doc-render');
+  if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
+
+  const poNum = document.getElementById('po-num').value || 'PO';
+  const modal = document.getElementById('share-modal');
+  modal.classList.add('show');
+
+  // 이미지 생성 (캐시 활용)
+  const origTransform = doc.style.transform;
+  doc.style.transform = 'none';
+  document.getElementById('share-preview-img').src = '';
+  document.getElementById('share-status').textContent = '이미지 생성 중...';
+
+  html2canvas(doc, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true })
+    .then(canvas => {
+      doc.style.transform = origTransform;
+      _shareDataUrl = canvas.toDataURL('image/png');
+      _sharePoNum = poNum;
+      document.getElementById('share-preview-img').src = _shareDataUrl;
+      document.getElementById('share-status').textContent = '아래 방법으로 공유하세요';
+    }).catch(() => {
+      doc.style.transform = origTransform;
+      document.getElementById('share-status').textContent = '이미지 생성 실패. PNG 저장을 이용해주세요.';
+    });
+}
+
+function closeShareModal() {
+  document.getElementById('share-modal').classList.remove('show');
+}
+
+function shareViaEmail() {
+  const poNum = _sharePoNum || 'PO';
+  const supplier = document.querySelector('.supplier-card.selected .sc-name');
+  const supplierName = supplier ? supplier.textContent : '공급업체';
+  const subject = encodeURIComponent(`[발주서] ${poNum} - ${supplierName}`);
+  const body = encodeURIComponent(`안녕하세요.\n\nZYTN 발주서 ${poNum}을 첨부합니다.\n\n※ PNG 저장 버튼으로 이미지를 저장한 후 첨부해 주세요.`);
+  window.open(`mailto:?subject=${subject}&body=${body}`);
+  showToast('📧 이메일 앱을 열었습니다. PNG 저장 후 첨부하세요.', 'success');
+}
+
+function shareViaTelegram() {
+  const poNum = _sharePoNum || 'PO';
+  const text = encodeURIComponent(`ZYTN 발주서 ${poNum}`);
+  window.open(`https://t.me/share/url?url=&text=${text}`, '_blank');
+  showToast('✈️ 텔레그램 열림. PNG 저장 후 파일 전송하세요.', 'success');
+}
+
+// 텔레그램 봇 설정 저장
+function saveTelegramSettings() {
+  const token = document.getElementById('set-tg-token').value.trim();
+  const chatId = document.getElementById('set-tg-chatid').value.trim();
+  if (!token || !chatId) { showToast('토큰과 채팅 ID를 모두 입력하세요', 'error'); return; }
+  TG_TOKEN = token;
+  TG_CHAT_ID = chatId;
+  localStorage.setItem('zytn_telegram', JSON.stringify({ token, chatId }));
+  showToast('✅ 텔레그램 설정 저장 완료', 'success');
+  document.getElementById('tg-status').textContent = '✅ 저장됨 (연결 테스트를 실행해보세요)';
+  document.getElementById('tg-status').style.color = 'var(--success)';
+}
+
+// 텔레그램 봇 연결 테스트
+async function testTelegramBot() {
+  const token = document.getElementById('set-tg-token').value.trim();
+  const chatId = document.getElementById('set-tg-chatid').value.trim();
+  if (!token || !chatId) { showToast('토큰과 채팅 ID를 먼저 입력하세요', 'error'); return; }
+  const statusEl = document.getElementById('tg-status');
+  statusEl.textContent = '테스트 중...';
+  statusEl.style.color = 'var(--text2)';
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: '✅ ZYTN 발주서 앱 텔레그램 연결 테스트 성공!\n봇 연결이 정상입니다.' })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      TG_TOKEN = token; TG_CHAT_ID = chatId;
+      localStorage.setItem('zytn_telegram', JSON.stringify({ token, chatId }));
+      statusEl.textContent = '✅ 연결 성공! 텔레그램으로 테스트 메시지가 전송되었습니다.';
+      statusEl.style.color = '#22c55e';
+      showToast('✅ 텔레그램 연결 성공!', 'success');
+    } else {
+      statusEl.textContent = `❌ 실패: ${data.description || '토큰 또는 채팅 ID 확인'}`;
+      statusEl.style.color = '#ef4444';
+    }
+  } catch (e) {
+    statusEl.textContent = '❌ 네트워크 오류. 인터넷 연결을 확인하세요.';
+    statusEl.style.color = '#ef4444';
+  }
+}
+
+// 텔레그램 봇으로 발주서 이미지 전송
+async function shareViaTelegramBot() {
+  if (!TG_TOKEN || !TG_CHAT_ID) {
+    showToast('⚠️ 설정 탭에서 토큰과 채팅 ID를 먼저 저장하세요', 'error');
+    // 설정 탭으로 이동
+    switchTab('settings');
+    return;
+  }
+  if (!_shareDataUrl) { showToast('이미지를 먼저 생성하세요', 'error'); return; }
+
+  const btn = document.getElementById('tg-bot-send-btn');
+  btn.textContent = '⏳ 전송 중...';
+  btn.disabled = true;
+
+  try {
+    // data URL → Blob 변환
+    const res = await fetch(_shareDataUrl);
+    const blob = await res.blob();
+    const poNum = _sharePoNum || 'PO';
+
+    const formData = new FormData();
+    formData.append('chat_id', TG_CHAT_ID);
+    formData.append('photo', blob, `발주서_${poNum}.png`);
+    formData.append('caption', `📄 ZYTN 발주서\n발주번호: ${poNum}\n발주일: ${new Date().toLocaleDateString('ko-KR')}`);
+
+    const tgRes = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendPhoto`, {
+      method: 'POST',
+      body: formData
+    });
+    const tgData = await tgRes.json();
+
+    if (tgData.ok) {
+      showToast('✅ 텔레그램 전송 성공!', 'success');
+      btn.textContent = '✅ 전송 완료';
+      btn.style.background = '#22c55e';
+      setTimeout(() => {
+        btn.textContent = '✈️ 텔레그램 전송';
+        btn.style.background = '#229ED9';
+        btn.disabled = false;
+      }, 3000);
+    } else {
+      throw new Error(tgData.description || '전송 실패');
+    }
+  } catch (e) {
+    showToast(`❌ 전송 실패: ${e.message}`, 'error');
+    btn.textContent = '✈️ 텔레그램 전송';
+    btn.disabled = false;
+  }
+}
+
+function copyImageToClipboard() {
+  if (!_shareDataUrl) { showToast('이미지를 먼저 생성하세요', 'error'); return; }
+  // Clipboard API로 이미지 복사 시도
+  fetch(_shareDataUrl)
+    .then(r => r.blob())
+    .then(blob => {
+      if (navigator.clipboard && window.ClipboardItem) {
+        const item = new ClipboardItem({ 'image/png': blob });
+        return navigator.clipboard.write([item]);
+      }
+      throw new Error('not supported');
+    })
+    .then(() => showToast('📋 이미지가 클립보드에 복사되었습니다! 카톡/메일에 붙여넣기 하세요.', 'success'))
+    .catch(() => {
+      // fallback: 새 탭에서 이미지 열기 (우클릭 복사 안내)
+      const w = window.open();
+      w.document.write(`<img src="${_shareDataUrl}" style="max-width:100%;"><p style="font-family:sans-serif;color:#666;">이미지를 우클릭 → 복사 후 카톡/메일에 붙여넣기 하세요.</p>`);
+      showToast('새 탭에서 이미지를 우클릭하여 복사하세요', 'info');
+    });
+}
+
+function downloadAndShare() {
+  if (!_shareDataUrl) { saveImage(); return; }
+  const link = document.createElement('a');
+  link.download = `발주서_${_sharePoNum || 'PO'}.png`;
+  link.href = _shareDataUrl;
+  link.click();
+  showToast('💾 저장 완료! 카톡/텔레그램에서 파일 전송하세요.', 'success');
+}
+
+// ════════════════════════════════════════
+// 내역
+// ════════════════════════════════════════
+function saveToHistory(data) {
+  poHistory.unshift(data);
+  if (poHistory.length > 50) poHistory = poHistory.slice(0, 50);
+  try { localStorage.setItem('zytn_po_history', JSON.stringify(poHistory)); } catch (e) {}
+  renderHistory();
+  // 수취인 정보 자동 저장
+  saveRecipientAuto(data.ship);
+}
+
+function saveRecipientAuto(ship) {
+  if (!ship || !ship.name.trim()) return;
+  // 동일 이름+연락처 중복 제거
+  const key = ship.name.trim() + '|' + (ship.tel || '').trim();
+  const exists = RECIPIENTS.findIndex(r => (r.name.trim() + '|' + (r.tel || '').trim()) === key);
+  const entry = {
+    id: Date.now(),
+    name: ship.name.trim(),
+    tel: ship.tel || '',
+    addr: ship.addr || '',
+    req: ship.req || '',
+    savedAt: new Date().toISOString()
+  };
+  if (exists >= 0) {
+    RECIPIENTS[exists] = entry; // 최신 정보로 업데이트
+  } else {
+    RECIPIENTS.unshift(entry);
+    if (RECIPIENTS.length > 100) RECIPIENTS = RECIPIENTS.slice(0, 100);
+  }
+  try { localStorage.setItem('zytn_recipients', JSON.stringify(RECIPIENTS)); } catch (e) {}
+}
+
+// ════════════════════════════════════════
+// 수취인 목록 관리
+// ════════════════════════════════════════
+function toggleRecipientList() {
+  const panel = document.getElementById('recipient-list-panel');
+  if (!panel) return;
+  if (panel.style.display === 'none') {
+    renderRecipientList();
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function renderRecipientList() {
+  const inner = document.getElementById('recipient-list-inner');
+  if (!inner) return;
+  if (!RECIPIENTS.length) {
+    inner.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text2);font-size:13px;">저장된 수취인이 없습니다<br><small style="font-size:11px;">발주서 생성 시 자동 저장됩니다</small></div>';
+    return;
+  }
+  inner.innerHTML = RECIPIENTS.map((r, i) => `
+    <div style="display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);gap:8px;" class="recipient-row">
+      <div style="flex:1;cursor:pointer;" onclick="selectRecipient(${i})">
+        <div style="font-size:14px;font-weight:600;color:var(--text);">${r.name}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;">${r.tel || '-'} ${r.addr ? '· ' + r.addr.substring(0, 20) + (r.addr.length > 20 ? '...' : '') : ''}</div>
+        ${r.req ? `<div style="font-size:11px;color:var(--accent);margin-top:2px;">배송: ${r.req}</div>` : ''}
+      </div>
+      <button onclick="deleteRecipient(${i}, event)" style="background:rgba(255,80,80,0.15);color:#ff5050;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;white-space:nowrap;">삭제</button>
+    </div>
+  `).join('');
+}
+
+function selectRecipient(idx) {
+  const r = RECIPIENTS[idx];
+  if (!r) return;
+  document.getElementById('recv-name').value = r.name;
+  document.getElementById('recv-tel').value = r.tel || '';
+  document.getElementById('recv-addr').value = r.addr || '';
+  document.getElementById('recv-req').value = r.req || '';
+  document.getElementById('recipient-list-panel').style.display = 'none';
+  showToast(`✅ ${r.name} 선택됨`, 'success');
+}
+
+function deleteRecipient(idx, event) {
+  event.stopPropagation();
+  const r = RECIPIENTS[idx];
+  if (!r) return;
+  if (!confirm(`'${r.name}' 수취인을 삭제하시겠습니까?`)) return;
+  RECIPIENTS.splice(idx, 1);
+  try { localStorage.setItem('zytn_recipients', JSON.stringify(RECIPIENTS)); } catch (e) {}
+  renderRecipientList();
+  showToast('수취인이 삭제되었습니다', 'success');
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (!poHistory.length) {
+    el.innerHTML = '<div class="loading">저장된 발주서가 없습니다</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 4px;">
+      <span style="font-size:12px;color:var(--text2);">전체 ${poHistory.length}건</span>
+      <button onclick="deleteAllHistory()" style="background:rgba(255,80,80,0.12);color:#ff5050;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">전체 삭제</button>
+    </div>
+  ` + poHistory.map((h, i) => `
+    <div class="history-card" style="position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;" onclick="loadHistory(${i})">
+        <div style="flex:1;">
+          <div class="h-num">${h.poNum}</div>
+          <div class="h-info">${h.supplier.name} → ${h.ship.name}</div>
+          <div class="h-date">${new Date(h.createdAt).toLocaleDateString('ko-KR')} · ${h.deadline}</div>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">${h.items.length}품목</div>
+          <div style="font-size:11px;color:var(--text2);">${h.ship.type}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+        <button onclick="loadHistory(${i})" style="flex:1;background:var(--surface2);color:var(--text);border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">👁 미리보기</button>
+        <button onclick="reloadHistory(${i})" style="flex:1;background:rgba(255,165,0,0.15);color:var(--accent);border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">✏️ 재사용</button>
+        <button onclick="deleteHistory(${i}, event)" style="background:rgba(255,80,80,0.12);color:#ff5050;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">삭제</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteHistory(idx, event) {
+  if (event) event.stopPropagation();
+  const h = poHistory[idx];
+  if (!h) return;
+  if (!confirm(`'${h.poNum}' 발주서를 삭제하시겠습니까?`)) return;
+  poHistory.splice(idx, 1);
+  try { localStorage.setItem('zytn_po_history', JSON.stringify(poHistory)); } catch (e) {}
+  renderHistory();
+  showToast('발주서가 삭제되었습니다', 'success');
+}
+
+function deleteAllHistory() {
+  if (!poHistory.length) return;
+  if (!confirm(`저장된 발주서 ${poHistory.length}건을 모두 삭제하시겠습니까?`)) return;
+  poHistory = [];
+  try { localStorage.setItem('zytn_po_history', JSON.stringify(poHistory)); } catch (e) {}
+  renderHistory();
+  showToast('전체 내역이 삭제되었습니다', 'success');
+}
+
+function reloadHistory(idx) {
+  const data = poHistory[idx];
+  if (!data) return;
+  // 입력 탭으로 이동하며 해당 데이터 복원
+  const ship = data.ship || {};
+  document.getElementById('recv-name').value = ship.name || '';
+  document.getElementById('recv-tel').value = ship.tel || '';
+  document.getElementById('recv-addr').value = ship.addr || '';
+  document.getElementById('recv-req').value = ship.req || '';
+  document.getElementById('po-memo').value = data.memo || '';
+  // 공급업체 선택
+  const sIdx = SUPPLIERS.findIndex(s => s.name === data.supplier.name);
+  if (sIdx >= 0) selectSupplier(sIdx);
+  // 내용 안내
+  switchTab('input');
+  showToast(`✅ ${data.poNum} 데이터가 입력란에 복원되었습니다`, 'success');
+}
+
+function loadHistory(idx) {
+  const data = poHistory[idx];
+  const html = buildPoHTML(data);
+  const target = document.getElementById('preview-target');
+  target.innerHTML = html;
+
+  const doc = target.querySelector('.po-doc');
+  if (doc) {
+    const vw = window.innerWidth - 28;
+    const scale = Math.min(1, vw / 800);
+    doc.style.transform = `scale(${scale})`;
+    doc.style.transformOrigin = 'top left';
+    requestAnimationFrame(() => {
+      target.style.height = (doc.scrollHeight * scale + 60) + 'px';
+    });
+  }
+  switchTab('preview');
+}
+
+// ════════════════════════════════════════
+// 탭 전환
+// ════════════════════════════════════════
+function switchTab(name) {
+  const names = ['input', 'preview', 'history', 'catalog', 'settings'];
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+
+  const bar = document.getElementById('actions-bar');
+  if (name === 'preview') {
+    bar.innerHTML = `
+      <button class="btn btn-outline" style="flex:.7;" onclick="switchTab('input')">← 수정</button>
+      <button class="btn btn-secondary" onclick="shareImage()">📤 공유</button>
+      <button class="btn btn-green" onclick="saveImage()">💾 PNG 저장</button>
+    `;
+  } else if (name === 'catalog') {
+    bar.innerHTML = `
+      <button class="btn btn-outline" style="flex:1;font-size:12px;" onclick="exportCatalog()">📤 JSON백업</button>
+      <button class="btn btn-outline" style="flex:1;font-size:12px;" onclick="document.getElementById('import-catalog-input').click()">📥 JSON복원</button>
+      <input type="file" id="import-catalog-input" accept=".json" style="display:none;" onchange="importCatalog(this)">
+    `;
+    renderCatalogAngles();
+  } else if (name === 'history') {
+    bar.innerHTML = `
+      <button class="btn btn-outline" onclick="clearHistory()">🗑 내역 전체 삭제</button>
+    `;
+  } else if (name === 'settings') {
+    bar.innerHTML = `
+      <button class="btn btn-primary" onclick="saveBuyerSettings()">💾 설정 저장</button>
+    `;
+    loadSettingsForm();
+  } else {
+    bar.innerHTML = `
+      <button class="btn btn-outline" style="flex:.7;" onclick="resetForm()">초기화</button>
+      <button class="btn btn-primary" onclick="generatePreview()">발주서 생성 →</button>
+    `;
+  }
+}
+
+// ════════════════════════════════════════
+// 초기화
+// ════════════════════════════════════════
+function resetForm() {
+  if (!confirm('입력 내용을 모두 초기화할까요?')) return;
+  document.getElementById('recv-name').value = '';
+  document.getElementById('recv-tel').value = '';
+  document.getElementById('recv-addr').value = '';
+  document.getElementById('recv-req').value = '';
+  document.getElementById('po-memo').value = '';
+  document.getElementById('items-container').innerHTML = '';
+  itemCount = 0;
+  itemPhotoSlots = {};
+  selectedSupplierIdx = 0;
+  renderSuppliers();
+  addItem();
+  genPoNum();
+  setTodayDate();
+  // 칩 초기화
+  document.querySelector('#deadline-chips .chip').click();
+  document.querySelector('#shiptype-chips .chip').click();
+  showToast('초기화 완료', 'success');
+}
+
+function clearHistory() {
+  if (!confirm('발주 내역을 모두 삭제할까요?')) return;
+  poHistory = [];
+  localStorage.removeItem('zytn_po_history');
+  renderHistory();
+  showToast('내역 삭제 완료');
+}
+
+function clearAllData() {
+  if (!confirm('모든 데이터(품목, 내역, 설정)를 초기화할까요?\n이 작업은 되돌릴 수 없습니다.')) return;
+  localStorage.clear();
+  showToast('전체 초기화 완료. 새로고침합니다.');
+  setTimeout(() => location.reload(), 1500);
+}
+
+// ════════════════════════════════════════
+// 토스트
+// ════════════════════════════════════════
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ════════════════════════════════════════
+// 품목관리 탭
+// ════════════════════════════════════════
+function renderCatalogAngles() {
+  const checked = Array.from(document.querySelectorAll('#cat-angles-wrap input:checked')).map(i => i.value);
+  const slotsEl = document.getElementById('cat-photo-slots');
+  if (!slotsEl) return;
+
+  slotsEl.innerHTML = checked.map(angle => {
+    const src = catEditPhotos[angle] || null;
+    return `
+      <div class="angle-slot">
+        <div class="angle-slot-header">
+          <span class="angle-label">${angle} 사진${angle === '정면' ? ' (기본)' : ''}</span>
+          ${src ? `<button class="angle-del-btn" onclick="deleteCatPhoto('${angle}')">× 삭제</button>` : ''}
+        </div>
+        ${src
+          ? `<img src="${src}" class="angle-photo-img" onclick="document.getElementById('cat-photo-${angle}').click()" style="cursor:pointer;" title="클릭하여 교체">`
+          : `<div class="angle-upload-btn" onclick="document.getElementById('cat-photo-${angle}').click()">
+               📷 ${angle} 사진 추가
+             </div>`
+        }
+        <input type="file" id="cat-photo-${angle}" accept="image/*" style="display:none;"
+          onchange="loadCatPhoto('${angle}', this)">
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadCatPhoto(angle, input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  try {
+    const dataURL = await compressPhoto(file);
+    catEditPhotos[angle] = dataURL;
+    renderCatalogAngles();
+  } catch (e) {
+    showToast('❌ 사진 로드 실패', 'error');
+  }
+}
+
+function deleteCatPhoto(angle) {
+  delete catEditPhotos[angle];
+  renderCatalogAngles();
+}
+
+function saveCatalogItem() {
+  const name = document.getElementById('cat-name').value.trim();
+  if (!name) { showToast('⚠️ 품목명을 입력하세요', 'error'); return; }
+
+  const unit = document.getElementById('cat-unit').value.trim() || '개';
+  const spec = document.getElementById('cat-spec').value.trim();
+  const note = document.getElementById('cat-note').value.trim();
+  const category = document.getElementById('cat-category').value || '기타';
+  const angles = Array.from(document.querySelectorAll('#cat-angles-wrap input:checked')).map(i => i.value);
+  if (!angles.length) { showToast('⚠️ 각도를 1개 이상 선택하세요', 'error'); return; }
+
+  const id = catEditId || ('custom_' + Date.now());
+  const photos = { ...catEditPhotos };
+  const defaultPhoto = photos['정면'] || (angles.length ? photos[angles[0]] : null) || null;
+
+  const item = { id, name, unit, category, defaultPhoto, angles, photos, spec, note, isCustom: true };
+
+  const existing = CATALOG.findIndex(c => c.id === id);
+  if (existing >= 0) {
+    CATALOG[existing] = item;
+  } else {
+    CATALOG.splice(CATALOG.length - 1, 0, item);
+  }
+
+  saveCustomCatalog();
+  renderCategorySelect('');
+  renderCatFilterChips();
+  renderCatalogList();
+  refreshItemDropdowns();
+  clearCatalogForm();
+  showToast('✅ 품목 저장 완료', 'success');
+}
+
+function saveCustomCatalog() {
+  const custom = CATALOG.filter(c => c.isCustom);
+  try { localStorage.setItem('zytn_catalog', JSON.stringify(custom)); } catch (e) {
+    showToast('⚠️ 저장 공간 부족. JSON 백업을 권장합니다.', 'error');
+  }
+}
+
+function clearCatalogForm() {
+  document.getElementById('cat-name').value = '';
+  document.getElementById('cat-unit').value = '개';
+  document.getElementById('cat-spec').value = '';
+  document.getElementById('cat-note').value = '';
+  const catSel = document.getElementById('cat-category');
+  if (catSel) catSel.value = '';
+  document.querySelectorAll('#cat-angles-wrap input').forEach((cb, i) => { cb.checked = i === 0; });
+  catEditPhotos = {};
+  catEditId = null;
+  renderCatalogAngles();
+}
+
+function editCatalogItem(id) {
+  const item = CATALOG.find(c => c.id === id);
+  if (!item) return;
+  catEditId = id;
+  document.getElementById('cat-name').value = item.name;
+  document.getElementById('cat-unit').value = item.unit;
+  document.getElementById('cat-spec').value = item.spec || '';
+  document.getElementById('cat-note').value = item.note || '';
+  // 카테고리 복원
+  renderCategorySelect(item.category || '');
+  const catSel = document.getElementById('cat-category');
+  if (catSel) catSel.value = item.category || '';
+  catEditPhotos = { ...(item.photos || {}) };
+  if (item.defaultPhoto && !catEditPhotos['정면']) catEditPhotos['정면'] = item.defaultPhoto;
+
+  document.querySelectorAll('#cat-angles-wrap input').forEach(cb => {
+    cb.checked = (item.angles || ['정면']).includes(cb.value);
+  });
+  renderCatalogAngles();
+  switchTab('catalog');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('✏️ 수정 모드');
+}
+
+function deleteCatalogItem(id) {
+  if (!confirm('이 품목을 삭제할까요?')) return;
+  const idx = CATALOG.findIndex(c => c.id === id);
+  if (idx >= 0) CATALOG.splice(idx, 1);
+  saveCustomCatalog();
+  renderCatalogList();
+  refreshItemDropdowns();
+  showToast('삭제 완료');
+}
+
+function renderCatalogList() {
+  const el = document.getElementById('catalog-list');
+  if (!el) return;
+
+  // 카테고리 필터 적용
+  let allItems = CATALOG.filter(c => c.id !== 'custom');
+  if (currentCatFilter !== '전체') {
+    allItems = allItems.filter(c => (c.category || '기타') === currentCatFilter);
+  }
+
+  // 필터 칩 항상 업데이트
+  renderCatFilterChips();
+
+  if (!allItems.length) {
+    el.innerHTML = `<div class="loading">${currentCatFilter === '전체' ? '등록된 품목 없음' : `'${currentCatFilter}' 카테고리에 품목이 없습니다`}</div>`;
+    return;
+  }
+
+  el.innerHTML = allItems.map(item => {
+    const thumb = item.defaultPhoto ||
+      (item.photos && item.angles && item.angles.length ? item.photos[item.angles[0]] : null) || null;
+    const catBadge = item.category
+      ? `<span style="display:inline-block;background:var(--accent);color:#fff;font-size:9px;padding:1px 6px;border-radius:10px;margin-left:4px;vertical-align:middle;">${item.category}</span>`
+      : '';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;border:1px solid var(--border);">
+        <div style="width:56px;height:56px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+          ${thumb
+            ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:contain;">`
+            : `<span style="font-size:24px;">📦</span>`}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">${item.name}
+            <span style="font-size:10px;color:var(--text2);font-weight:400;">(${item.unit})</span>
+            ${catBadge}
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">${(item.angles || []).join(' · ')}</div>
+          ${item.spec ? `<div style="font-size:11px;color:var(--accent);margin-top:1px;">${item.spec}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+          <button onclick="editCatalogItem('${item.id}')"
+            style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;padding:5px 10px;cursor:pointer;font-family:inherit;">수정</button>
+          <button onclick="deleteCatalogItem('${item.id}')"
+            style="background:none;border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;padding:5px 10px;cursor:pointer;font-family:inherit;">삭제</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ════════════════════════════════════════
+// JSON 백업/복원
+// ════════════════════════════════════════
+function exportCatalog() {
+  const custom = CATALOG.filter(c => c.isCustom);
+  const blob = new Blob([JSON.stringify(custom, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '품목목록_백업.json';
+  a.click();
+  showToast('✅ JSON 백업 완료', 'success');
+}
+
+function importCatalog(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const items = JSON.parse(e.target.result);
+      if (!Array.isArray(items)) throw new Error('Invalid format');
+      items.forEach(item => {
+        item.isCustom = true;
+        // photos 정규화
+        if (!item.photos || typeof item.photos !== 'object') item.photos = {};
+        if (item.defaultPhoto && !item.photos['정면']) {
+          item.photos['정면'] = item.defaultPhoto;
+        }
+        // angles 정규화
+        if (!Array.isArray(item.angles) || item.angles.length === 0) {
+          item.angles = Object.keys(item.photos).filter(k => item.photos[k]);
+          if (item.angles.length === 0) item.angles = ['정면'];
+        }
+        const idx = CATALOG.findIndex(c => c.id === item.id);
+        if (idx >= 0) CATALOG[idx] = item;
+        else CATALOG.splice(CATALOG.length - 1, 0, item);
+      });
+      saveCustomCatalog();
+      renderCategorySelect('');
+      renderCatFilterChips();
+      renderCatalogList();
+      // 드롭다운 + 사진 슬롯 재렌더링
+      document.querySelectorAll('.item-row').forEach(row => {
+        const sel = row.querySelector('.item-cat');
+        if (!sel) return;
+        const curId = sel.value;
+        sel.innerHTML = buildCatOptions(curId);
+        sel.value = curId;
+        const itemId = parseInt(row.id.replace('item-', ''));
+        const cat = getCatalogItem(curId);
+        if (cat && cat.photos && Object.keys(cat.photos).length > 0) {
+          if (!itemPhotoSlots[itemId] || Object.keys(itemPhotoSlots[itemId]).length === 0) {
+            itemPhotoSlots[itemId] = { ...cat.photos };
+          }
+        }
+        renderPhotoSlots(itemId, cat ? (cat.angles || ['정면']) : ['정면']);
+      });
+      showToast(`✅ ${items.length}개 품목 복원 완료 (사진 포함)`, 'success');
+    } catch {
+      showToast('❌ 파일 형식 오류', 'error');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ════════════════════════════════════════
+// 앱 시작
+// ════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
