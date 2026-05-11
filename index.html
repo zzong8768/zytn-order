@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<!-- html2canvas: 동적 로드 방식으로 변경 (defer 제거 - 타이밍 오류 방지) -->
 <style>
 
   :root {
@@ -889,16 +889,36 @@ function lsLoad(key, fallback) {
 
 /** html2canvas 공통 옵션 */
 const H2C_OPTS = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true };
+const H2C_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+let _h2cLoading = null; // 중복 로드 방지
 
 /**
- * html2canvas로 발주서 캡처 후 dataURL 반환
+ * html2canvas 라이브러리를 필요시에만 동적 로드
+ * @returns {Promise<void>}
+ */
+function loadH2C() {
+  if (typeof html2canvas === 'function') return Promise.resolve();
+  if (_h2cLoading) return _h2cLoading;
+  _h2cLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = H2C_CDN;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('html2canvas 로드 실패'));
+    document.head.appendChild(s);
+  });
+  return _h2cLoading;
+}
+
+/**
+ * html2canvas로 발주서 캐청 후 dataURL 반환
  * @param {HTMLElement} doc
  * @returns {Promise<string>} dataURL
  */
 function captureDoc(doc) {
   const orig = doc.style.transform;
   doc.style.transform = 'none';
-  return html2canvas(doc, H2C_OPTS)
+  return loadH2C()
+    .then(() => html2canvas(doc, H2C_OPTS))
     .then(canvas => { doc.style.transform = orig; return canvas.toDataURL('image/png'); })
     .catch(err => { doc.style.transform = orig; throw err; });
 }
@@ -1702,13 +1722,27 @@ function saveImage() {
   const doc = document.getElementById('po-doc-render');
   if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
   showToast('📸 이미지 저장 중...');
-  captureDoc(doc).then(dataURL => {
-    const link = document.createElement('a');
-    link.download = `발주서_${document.getElementById('po-num').value}.png`;
-    link.href = dataURL;
-    link.click();
-    showToast('✅ 이미지 저장 완료!', 'success');
-  }).catch(err => { console.error(err); showToast('저장 오류. 다시 시도해주세요.', 'error'); });
+  // transform 일시 제거 후 캐청
+  const prevTransform = doc.style.transform;
+  const prevOrigin = doc.style.transformOrigin;
+  doc.style.transform = 'none';
+  doc.style.transformOrigin = 'top left';
+  loadH2C().then(() => html2canvas(doc, H2C_OPTS))
+    .then(canvas => {
+      doc.style.transform = prevTransform;
+      doc.style.transformOrigin = prevOrigin;
+      const link = document.createElement('a');
+      link.download = `발주서_${document.getElementById('po-num').value}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('✅ 이미지 저장 완료!', 'success');
+    })
+    .catch(err => {
+      doc.style.transform = prevTransform;
+      doc.style.transformOrigin = prevOrigin;
+      console.error(err);
+      showToast('저장 오류. 다시 시도해주세요.', 'error');
+    });
 }
 
 // 공유용 이미지 dataURL 캐시
@@ -1723,18 +1757,32 @@ function shareImage() {
     openShareModal(); return;
   }
   showToast('📤 공유 준비 중...');
-  captureDoc(doc).then(dataURL => {
-    fetch(dataURL).then(r => r.blob()).then(async blob => {
-      const poNum = document.getElementById('po-num').value;
-      const file = new File([blob], `발주서_${poNum}.png`, { type: 'image/png' });
-      if (navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ title: `발주서 ${poNum}`, text: `ZYTN 발주서 ${poNum}`, files: [file] });
-          showToast('✅ 공유 완료!', 'success');
-        } catch (e) { if (e.name !== 'AbortError') openShareModal(); }
-      } else { openShareModal(); }
+  // transform 일시 제거 후 캐청
+  const prevTransform = doc.style.transform;
+  const prevOrigin = doc.style.transformOrigin;
+  doc.style.transform = 'none';
+  doc.style.transformOrigin = 'top left';
+  loadH2C().then(() => html2canvas(doc, H2C_OPTS))
+    .then(canvas => {
+      doc.style.transform = prevTransform;
+      doc.style.transformOrigin = prevOrigin;
+      const dataURL = canvas.toDataURL('image/png');
+      fetch(dataURL).then(r => r.blob()).then(async blob => {
+        const poNum = document.getElementById('po-num').value;
+        const file = new File([blob], `발주서_${poNum}.png`, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ title: `발주서 ${poNum}`, text: `ZYTN 발주서 ${poNum}`, files: [file] });
+            showToast('✅ 공유 완료!', 'success');
+          } catch (e) { if (e.name !== 'AbortError') openShareModal(); }
+        } else { openShareModal(); }
+      });
+    })
+    .catch(() => {
+      doc.style.transform = prevTransform;
+      doc.style.transformOrigin = prevOrigin;
+      openShareModal();
     });
-  }).catch(() => openShareModal());
 }
 
 function openShareModal() {
@@ -1746,14 +1794,27 @@ function openShareModal() {
   document.getElementById('share-preview-img').src = '';
   document.getElementById('share-status').textContent = '이미지 생성 중...';
 
-  captureDoc(doc)
-    .then(dataURL => {
+  // 캐스 전 transform 일시 제거 (스케일링 상태에서 캐스하면 실패)
+  const prevTransform = doc.style.transform;
+  const prevOrigin = doc.style.transformOrigin;
+  doc.style.transform = 'none';
+  doc.style.transformOrigin = 'top left';
+
+  loadH2C().then(() => html2canvas(doc, H2C_OPTS))
+    .then(canvas => {
+      // transform 복원
+      doc.style.transform = prevTransform;
+      doc.style.transformOrigin = prevOrigin;
+      const dataURL = canvas.toDataURL('image/png');
       _shareDataUrl = dataURL;
       document.getElementById('share-preview-img').src = dataURL;
       document.getElementById('share-status').textContent = '아래 방법으로 공유하세요';
     })
-    .catch(() => {
-      document.getElementById('share-status').textContent = '이미지 생성 실패. PNG 저장을 이용해주세요.';
+    .catch(err => {
+      doc.style.transform = prevTransform;
+      doc.style.transformOrigin = prevOrigin;
+      console.error('[openShareModal] 캐스 실패:', err);
+      document.getElementById('share-status').textContent = '다시 시도하세요. 공유할 수 있는 일부 방법만 표시됩니다.';
     });
 }
 
