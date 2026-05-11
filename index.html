@@ -740,25 +740,18 @@
 
 <!-- 공유 모달 -->
 <div class="modal-overlay" id="share-modal" onclick="if(event.target===this)closeShareModal()">
-  <div class="modal" style="max-width:360px;width:92%;">
-    <div class="modal-title">📤 발주서 공유</div>
+  <div class="modal" style="max-width:380px;width:94%;">
+    <div class="modal-title">&#128228; 발주서 공유</div>
+    <!-- 상태 / 환경 안내 -->
     <div id="share-status" style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px;">이미지 생성 중...</div>
-    <div style="width:100%;max-height:180px;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#f5f5f5;margin-bottom:14px;display:flex;align-items:center;justify-content:center;">
-      <img id="share-preview-img" src="" style="width:100%;object-fit:contain;" alt="발주서 미리보기">
+    <!-- 미리보기 이미지 -->
+    <div style="width:100%;max-height:180px;overflow:hidden;border-radius:8px;border:1px solid var(--border);background:#f5f5f5;margin-bottom:14px;display:flex;align-items:center;justify-content:center;min-height:60px;">
+      <img id="share-preview-img" src="" style="width:100%;object-fit:contain;display:none;" alt="발주서 미리보기" onload="this.style.display='block'">
+      <span id="share-img-loading" style="font-size:12px;color:#999;">&#9203; 이미지 생성 중...</span>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button onclick="downloadAndShare()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">💾 PNG 저장 (카톡/텔레그램 전송용)</button>
-      <button onclick="copyImageToClipboard()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:13px;cursor:pointer;font-family:inherit;">📋 이미지 클립보드 복사</button>
-      <div style="display:flex;gap:8px;">
-        <button onclick="shareViaEmail()" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:inherit;">📧 이메일</button>
-        <button onclick="shareViaTelegramBot()" id="tg-bot-send-btn" style="flex:1;background:#229ED9;color:#fff;border:none;border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;">✈️ 텔레그램 전송</button>
-      </div>
-      <div style="background:var(--surface2);border-radius:8px;padding:10px;font-size:11px;color:var(--text2);line-height:1.6;border:1px solid var(--border);">
-        <strong style="color:var(--text);">💡 카카오톡으로 보내는 방법</strong><br>
-        1. PNG 저장 버튼으로 이미지 저장<br>
-        2. 카카오톡 채팅창 열기<br>
-        3. 파일 첨부 → 저장된 발주서 PNG 선택
-      </div>
+    <!-- 동적 버튼 영역 -->
+    <div id="share-btn-area" style="display:flex;flex-direction:column;gap:8px;">
+      <!-- JS로 환경에 맞게 채워짐 -->
     </div>
     <button onclick="closeShareModal()" style="margin-top:10px;width:100%;background:none;border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text2);font-size:13px;cursor:pointer;font-family:inherit;">닫기</button>
   </div>
@@ -1785,16 +1778,96 @@ function shareImage() {
     });
 }
 
+// 환경 정보 캐시
+const _ENV = {
+  get isMobile() { return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); },
+  get canWebShare() { return typeof navigator.share === 'function' && typeof navigator.canShare === 'function'; },
+  get canClipboardImage() { return !!(navigator.clipboard && window.ClipboardItem); },
+  get hasTgToken() { return !!(TG_TOKEN && TG_CHAT_ID); },
+};
+
+/** 공유 모달 버튼을 환경에 맞게 동적 렌더 */
+function renderShareButtons() {
+  const area = document.getElementById('share-btn-area');
+  const btns = [];
+
+  // 1. 모바일: Web Share API (파일 공유)
+  if (_ENV.isMobile && _ENV.canWebShare) {
+    btns.push(`<button onclick="nativeShare()" style="background:var(--accent);color:#000;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">&#128228; 바로 공유 (카톡/메시지...)</button>`);
+  }
+
+  // 2. PNG 저장 (모든 환경)
+  btns.push(`<button onclick="downloadAndShare()" style="background:var(--accent);color:#000;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">&#128190; PNG 저장</button>`);
+
+  // 3. 클립보드 복사 (보안 컨텍스트 + ClipboardItem 지원 시)
+  if (_ENV.canClipboardImage) {
+    btns.push(`<button onclick="copyImageToClipboard()" style="background:#4a9eff;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">&#128203; 클립보드 복사 → 카톡/메일에 붙여넣기</button>`);
+  } else {
+    btns.push(`<button onclick="openImageInTab()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-family:inherit;">&#128065; 새 탭에서 열기 (우클릭 저장)</button>`);
+  }
+
+  // 4. 햄스 로우 (이메일 + 텔레그램)
+  const tgLabel = _ENV.hasTgToken ? '✈️ 텔레그램 전송' : '✈️ 텔레그램 (설정 필요)';
+  const tgStyle = _ENV.hasTgToken
+    ? 'flex:1;background:#229ED9;color:#fff;border:none;border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;'
+    : 'flex:1;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:inherit;';
+  btns.push(`<div style="display:flex;gap:8px;">
+    <button onclick="shareViaEmail()" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:12px;cursor:pointer;font-family:inherit;">&#128231; 이메일</button>
+    <button onclick="shareViaTelegramBot()" id="tg-bot-send-btn" style="${tgStyle}">${tgLabel}</button>
+  </div>`);
+
+  // 5. 환경 안내 힌트
+  const hint = _ENV.canClipboardImage
+    ? '💡 클립보드 복사 후 카카오톡/메일에 Ctrl+V 붙여넣기'
+    : '💡 PNG 저장 후 카카오톡 파일 쳊부로 전송하세요';
+  btns.push(`<div style="background:var(--surface2);border-radius:8px;padding:10px;font-size:11px;color:var(--text2);line-height:1.6;border:1px solid var(--border);">${hint}</div>`);
+
+  area.innerHTML = btns.join('');
+}
+
+function openImageInTab() {
+  if (!_shareDataUrl) { showToast('이미지를 먼저 생성하세요', 'error'); return; }
+  const w = window.open();
+  w.document.write(`<html><body style="margin:0;background:#111;display:flex;flex-direction:column;align-items:center;padding:20px;"><img src="${_shareDataUrl}" style="max-width:100%;border-radius:8px;"><p style="font-family:sans-serif;color:#aaa;margin-top:12px;font-size:13px;">이미지 우클릭 → '다른 이름으로 저장' 또는 '복사' 후 카톡/메일에 붙여넣기</p></body></html>`);
+  showToast('새 탭에서 이미지를 우클릭하여 저장하세요', 'info');
+}
+
+async function nativeShare() {
+  if (!_shareDataUrl) { showToast('이미지 생성 중...', 'error'); return; }
+  try {
+    const blob = await fetch(_shareDataUrl).then(r => r.blob());
+    const file = new File([blob], `발주서_${_sharePoNum}.png`, { type: 'image/png' });
+    if (navigator.canShare({ files: [file] })) {
+      await navigator.share({ title: `발주서 ${_sharePoNum}`, files: [file] });
+      showToast('✅ 공유 완료!', 'success');
+    } else {
+      downloadAndShare();
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') downloadAndShare();
+  }
+}
+
 function openShareModal() {
   const doc = document.getElementById('po-doc-render');
   if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
 
   _sharePoNum = document.getElementById('po-num').value || 'PO';
-  document.getElementById('share-modal').classList.add('show');
-  document.getElementById('share-preview-img').src = '';
+  const modal = document.getElementById('share-modal');
+  modal.classList.add('show');
+
+  // 미리보기 초기화
+  const prevImg = document.getElementById('share-preview-img');
+  const loadingSpan = document.getElementById('share-img-loading');
+  prevImg.style.display = 'none';
+  prevImg.src = '';
+  if (loadingSpan) loadingSpan.style.display = 'block';
   document.getElementById('share-status').textContent = '이미지 생성 중...';
 
-  // 캐스 전 transform 일시 제거 (스케일링 상태에서 캐스하면 실패)
+  // 환경별 버튼 렌더 (이미지 생성 전에 미리 표시)
+  renderShareButtons();
+
+  // 캐스 전 transform 일시 제거
   const prevTransform = doc.style.transform;
   const prevOrigin = doc.style.transformOrigin;
   doc.style.transform = 'none';
@@ -1802,19 +1875,21 @@ function openShareModal() {
 
   loadH2C().then(() => html2canvas(doc, H2C_OPTS))
     .then(canvas => {
-      // transform 복원
       doc.style.transform = prevTransform;
       doc.style.transformOrigin = prevOrigin;
       const dataURL = canvas.toDataURL('image/png');
       _shareDataUrl = dataURL;
-      document.getElementById('share-preview-img').src = dataURL;
-      document.getElementById('share-status').textContent = '아래 방법으로 공유하세요';
+      prevImg.src = dataURL;
+      if (loadingSpan) loadingSpan.style.display = 'none';
+      document.getElementById('share-status').textContent = ‘’;
+      // 이미지 완성 후 버튼 재렌더 (텍스트 업데이트 없음)
     })
     .catch(err => {
       doc.style.transform = prevTransform;
       doc.style.transformOrigin = prevOrigin;
+      if (loadingSpan) loadingSpan.style.display = 'none';
       console.error('[openShareModal] 캐스 실패:', err);
-      document.getElementById('share-status').textContent = '다시 시도하세요. 공유할 수 있는 일부 방법만 표시됩니다.';
+      document.getElementById('share-status').textContent = '⚠️ 이미지 생성 실패. PNG 저장은 정상 작동합니다.';
     });
 }
 
