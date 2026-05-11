@@ -551,9 +551,41 @@
 
 <!-- ════ 내역 탭 ════ -->
 <div class="tab-panel" id="tab-history">
-  <div id="history-list">
-    <div class="loading">저장된 발주서가 없습니다</div>
+
+  <!-- 검색 및 필터 영역 -->
+  <div style="padding:12px 14px 0;">
+    <div style="position:relative;margin-bottom:10px;">
+      <input type="search" id="hist-search"
+        placeholder="발주번호 / 수취인 / 공급업체 검색"
+        oninput="renderHistory()"
+        style="width:100%;padding:10px 36px 10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;box-sizing:border-box;">
+      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:14px;pointer-events:none;">&#128269;</span>
+    </div>
+
+    <!-- 공급업체 필터 칩 -->
+    <div id="hist-supplier-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+
+    <!-- 상태 필터 칩 -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="chip active" style="font-size:11px;padding:4px 10px;" onclick="setHistStatusFilter('all', this)">전체</div>
+      <div class="chip" style="font-size:11px;padding:4px 10px;background:rgba(59,130,246,.15);color:#60a5fa;" onclick="setHistStatusFilter('ordered', this)">&#128230; 발주완료</div>
+      <div class="chip" style="font-size:11px;padding:4px 10px;background:rgba(251,191,36,.15);color:#fbbf24;" onclick="setHistStatusFilter('shipping', this)">&#128666; 배송중</div>
+      <div class="chip" style="font-size:11px;padding:4px 10px;background:rgba(34,197,94,.15);color:#22c55e;" onclick="setHistStatusFilter('done', this)">&#9989; 완료</div>
+      <div class="chip" style="font-size:11px;padding:4px 10px;background:rgba(239,68,68,.15);color:#ef4444;" onclick="setHistStatusFilter('cancel', this)">&#10060; 취소</div>
+    </div>
+
+    <!-- 정렬 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span id="hist-count" style="font-size:12px;color:var(--text2);"></span>
+      <select id="hist-sort" onchange="renderHistory()" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;">
+        <option value="newest">억신순</option>
+        <option value="oldest">오래된순</option>
+        <option value="supplier">공급업체순</option>
+      </select>
+    </div>
   </div>
+
+  <div id="history-list" style="padding:0 14px 80px;"></div>
 </div>
 
 <!-- ════ 품목관리 탭 ════ -->
@@ -732,6 +764,47 @@
   </div>
 </div>
 
+<!-- 내역 상세 모달 -->
+<div class="modal-overlay" id="hist-detail-modal" onclick="if(event.target===this)closeHistDetail()">
+  <div class="modal" style="max-width:400px;width:94%;max-height:85vh;overflow-y:auto;">
+    <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span id="hd-po-num" style="font-size:14px;"></span>
+      <div id="hd-status-badge"></div>
+    </div>
+
+    <!-- 상태 변경 -->
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--text2);margin-bottom:6px;display:block;">&#128204; 처리상태</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="setHistStatus(_hdIdx,'ordered')" class="hd-status-btn" data-s="ordered" style="flex:1;padding:7px 4px;border-radius:8px;border:1px solid #3b82f6;background:rgba(59,130,246,.15);color:#60a5fa;font-size:11px;cursor:pointer;font-family:inherit;">&#128230; 발주완료</button>
+        <button onclick="setHistStatus(_hdIdx,'shipping')" class="hd-status-btn" data-s="shipping" style="flex:1;padding:7px 4px;border-radius:8px;border:1px solid #fbbf24;background:rgba(251,191,36,.15);color:#fbbf24;font-size:11px;cursor:pointer;font-family:inherit;">&#128666; 배송중</button>
+        <button onclick="setHistStatus(_hdIdx,'done')" class="hd-status-btn" data-s="done" style="flex:1;padding:7px 4px;border-radius:8px;border:1px solid #22c55e;background:rgba(34,197,94,.15);color:#22c55e;font-size:11px;cursor:pointer;font-family:inherit;">&#9989; 완료</button>
+        <button onclick="setHistStatus(_hdIdx,'cancel')" class="hd-status-btn" data-s="cancel" style="flex:1;padding:7px 4px;border-radius:8px;border:1px solid #ef4444;background:rgba(239,68,68,.15);color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;">&#10060; 취소</button>
+      </div>
+    </div>
+
+    <!-- 메모 -->
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--text2);margin-bottom:6px;display:block;">&#128221; 메모 / 비고</label>
+      <textarea id="hd-memo" rows="3"
+        placeholder="배송일시, 인수확인 등 메모 입력"
+        style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>
+      <button onclick="saveHistMemo()" style="margin-top:6px;width:100%;padding:8px;border-radius:8px;border:none;background:var(--accent);color:#000;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">&#128190; 메모 저장</button>
+    </div>
+
+    <!-- 요약 정보 -->
+    <div id="hd-summary" style="background:var(--surface2);border-radius:8px;padding:12px;font-size:12px;line-height:1.8;margin-bottom:14px;"></div>
+
+    <!-- 액션 버튼 -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="loadHistory(_hdIdx)" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;">&#128065; 미리보기</button>
+      <button onclick="reloadHistory(_hdIdx)" style="flex:1;padding:10px;border-radius:8px;border:none;background:rgba(255,165,0,.15);color:var(--accent);font-size:12px;cursor:pointer;font-family:inherit;">&#9999;&#65039; 재사용</button>
+      <button onclick="saveHistPng(_hdIdx)" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--green);color:#000;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">&#128190; PNG</button>
+    </div>
+    <button onclick="closeHistDetail()" style="margin-top:10px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text2);font-size:13px;cursor:pointer;font-family:inherit;">닫기</button>
+  </div>
+</div>
+
 <!-- 미리보기용 숨겨진 렌더 영역 -->
 <div id="preview-wrapper"></div>
 
@@ -794,6 +867,9 @@ let TG_CHAT_ID = '';           // 텔레그램 채팅 ID
 let _shareDataUrl = null;      // 공유용 이미지 data URL 캐시
 let RECIPIENTS = [];           // 저장된 수취인 목록
 let _sharePoNum = '';          // 공유용 발주번호 캐시
+let _histStatusFilter = 'all'; // 내역 상태 필터
+let _histSupplierFilter = '';  // 내역 공급업체 필터
+let _hdIdx = -1;               // 내역 상세 모달 인덱스
 
 // ════════════════════════════════════════
 // 유틸리티 헬퍼
@@ -1835,8 +1911,9 @@ function downloadAndShare() {
 // 내역
 // ════════════════════════════════════════
 function saveToHistory(data) {
+  if (!data.status) data.status = 'ordered'; // 초기 상태 설정
   poHistory.unshift(data);
-  if (poHistory.length > 50) poHistory = poHistory.slice(0, 50);
+  if (poHistory.length > 200) poHistory = poHistory.slice(0, 200);
   lsSave('zytn_po_history', poHistory);
   renderHistory();
   // 수취인 정보 자동 저장
@@ -1920,37 +1997,113 @@ function deleteRecipient(idx, event) {
   showToast('수취인이 삭제되었습니다', 'success');
 }
 
+// 상태 배지 HTML 생성
+function statusBadge(s) {
+  const MAP = {
+    ordered:  { label: '발주완료', color: '#60a5fa',  bg: 'rgba(59,130,246,.15)'  },
+    shipping: { label: '배송중',  color: '#fbbf24',  bg: 'rgba(251,191,36,.15)'  },
+    done:     { label: '완료',     color: '#22c55e',  bg: 'rgba(34,197,94,.15)'   },
+    cancel:   { label: '취소',     color: '#ef4444',  bg: 'rgba(239,68,68,.15)'   },
+  };
+  const m = MAP[s] || MAP['ordered'];
+  return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${m.bg};color:${m.color};font-weight:700;">${m.label}</span>`;
+}
+
+// 공급업체 필터 칩 렌더
+function renderHistSupplierChips() {
+  const wrap = document.getElementById('hist-supplier-chips');
+  if (!wrap) return;
+  const names = [...new Set(poHistory.map(h => h.supplier.name))];
+  if (!names.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div class="chip ${_histSupplierFilter==='' ? 'active' : ''}" style="font-size:11px;padding:4px 10px;" onclick="setHistSupFilter('', this)">전체</div>` +
+    names.map(n => `<div class="chip ${_histSupplierFilter===n ? 'active' : ''}" style="font-size:11px;padding:4px 10px;" onclick="setHistSupFilter('${n}', this)">${n}</div>`).join('');
+}
+
+function setHistStatusFilter(val, el) {
+  _histStatusFilter = val;
+  document.querySelectorAll('#tab-history .chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderHistory();
+}
+
+function setHistSupFilter(val, el) {
+  _histSupplierFilter = val;
+  renderHistSupplierChips();
+  renderHistory();
+}
+
 function renderHistory() {
   const el = document.getElementById('history-list');
+  if (!el) return;
+
+  // 공급업체 필터 칩 업데이트
+  renderHistSupplierChips();
+
   if (!poHistory.length) {
-    el.innerHTML = '<div class="loading">저장된 발주서가 없습니다</div>';
+    el.innerHTML = '<div class="loading">저장된 발주서가 없습니다<br><small style="font-size:11px;color:var(--text2);">&#128204; 발주서 생성 시 자동 저장됩니다</small></div>';
+    const cnt = document.getElementById('hist-count');
+    if (cnt) cnt.textContent = '';
     return;
   }
-  el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 4px;">
-      <span style="font-size:12px;color:var(--text2);">전체 ${poHistory.length}건</span>
-      <button onclick="deleteAllHistory()" style="background:rgba(255,80,80,0.12);color:#ff5050;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">전체 삭제</button>
-    </div>
-  ` + poHistory.map((h, i) => `
+
+  // 검색어
+  const q = (document.getElementById('hist-search')?.value || '').trim().toLowerCase();
+  // 정렬
+  const sort = document.getElementById('hist-sort')?.value || 'newest';
+
+  // 필터링
+  let list = poHistory.map((h, i) => ({ ...h, _origIdx: i }));
+  if (q) list = list.filter(h =>
+    h.poNum.toLowerCase().includes(q) ||
+    h.ship.name.toLowerCase().includes(q) ||
+    h.supplier.name.toLowerCase().includes(q)
+  );
+  if (_histStatusFilter !== 'all') list = list.filter(h => (h.status || 'ordered') === _histStatusFilter);
+  if (_histSupplierFilter) list = list.filter(h => h.supplier.name === _histSupplierFilter);
+
+  // 정렬
+  if (sort === 'oldest') list.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  else if (sort === 'supplier') list.sort((a, b) => a.supplier.name.localeCompare(b.supplier.name));
+  // newest: 기본 순서 (최신 먼저)
+
+  const cnt = document.getElementById('hist-count');
+  if (cnt) cnt.textContent = `${list.length} / ${poHistory.length}건`;
+
+  if (!list.length) {
+    el.innerHTML = '<div class="loading">검색 결과가 없습니다</div>';
+    return;
+  }
+
+  el.innerHTML = list.map(h => {
+    const i = h._origIdx;
+    const st = h.status || 'ordered';
+    const hdMemo = h.hdMemo || '';
+    return `
     <div class="history-card" style="position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;" onclick="loadHistory(${i})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer;" onclick="openHistDetail(${i})">
         <div style="flex:1;">
-          <div class="h-num">${h.poNum}</div>
-          <div class="h-info">${h.supplier.name} → ${h.ship.name}</div>
-          <div class="h-date">${new Date(h.createdAt).toLocaleDateString('ko-KR')} · ${h.deadline}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+            <span class="h-num" style="margin:0;">${h.poNum}</span>
+            ${statusBadge(st)}
+          </div>
+          <div class="h-info">${h.supplier.name} &#8594; ${h.ship.name}</div>
+          <div class="h-date">${new Date(h.createdAt).toLocaleDateString('ko-KR')} &middot; ${h.deadline}</div>
+          ${hdMemo ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;">&#128221; ${hdMemo.substring(0,30)}${hdMemo.length>30?'...':''}</div>` : ''}
         </div>
-        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           <div style="font-size:13px;font-weight:700;color:var(--text);">${h.items.length}품목</div>
           <div style="font-size:11px;color:var(--text2);">${h.ship.type}</div>
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
-        <button onclick="loadHistory(${i})" style="flex:1;background:var(--surface2);color:var(--text);border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">👁 미리보기</button>
-        <button onclick="reloadHistory(${i})" style="flex:1;background:rgba(255,165,0,0.15);color:var(--accent);border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">✏️ 재사용</button>
-        <button onclick="deleteHistory(${i}, event)" style="background:rgba(255,80,80,0.12);color:#ff5050;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">삭제</button>
+        <button onclick="loadHistory(${i})" style="flex:1;background:var(--surface2);color:var(--text);border:none;border-radius:6px;padding:6px;font-size:12px;cursor:pointer;">&#128065; 미리보기</button>
+        <button onclick="reloadHistory(${i})" style="flex:1;background:rgba(255,165,0,0.15);color:var(--accent);border:none;border-radius:6px;padding:6px;font-size:12px;cursor:pointer;">&#9999;&#65039; 재사용</button>
+        <button onclick="openHistDetail(${i})" style="flex:1;background:rgba(59,130,246,.15);color:#60a5fa;border:none;border-radius:6px;padding:6px;font-size:12px;cursor:pointer;">&#128204; 상세</button>
+        <button onclick="deleteHistory(${i}, event)" style="background:rgba(255,80,80,0.12);color:#ff5050;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;">삭제</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function deleteHistory(idx, event) {
@@ -1971,6 +2124,52 @@ function deleteAllHistory() {
   lsSave('zytn_po_history', poHistory);
   renderHistory();
   showToast('전체 내역이 삭제되었습니다', 'success');
+}
+
+// ════════════════════════════════════════
+// 내역 JSON 백업 / 복원
+// ════════════════════════════════════════
+function exportHistory() {
+  if (!poHistory.length) { showToast('저장된 내역이 없습니다', 'error'); return; }
+  const today = new Date().toISOString().slice(0, 10);
+  const blob = new Blob([JSON.stringify(poHistory, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `발주내역_백업_${today}.json`;
+  a.click();
+  showToast(`✅ ${poHistory.length}건 내역 백업 완료`, 'success');
+}
+
+function importHistory(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('Invalid');
+      const mode = confirm(
+        `백업 파일에 ${data.length}건이 있습니다.\n\n[확인] 기존 내역에 추가\n[취소] 전체 교체`
+      );
+      if (mode) {
+        // 추가: 중복 poNum 제외
+        const existing = new Set(poHistory.map(h => h.poNum));
+        const added = data.filter(h => !existing.has(h.poNum));
+        poHistory = [...added, ...poHistory];
+        showToast(`✅ ${added.length}건 추가 완료`, 'success');
+      } else {
+        poHistory = data;
+        showToast(`✅ ${data.length}건으로 교체 완료`, 'success');
+      }
+      if (poHistory.length > 200) poHistory = poHistory.slice(0, 200);
+      lsSave('zytn_po_history', poHistory);
+      renderHistory();
+    } catch {
+      showToast('❌ 파일 형식 오류', 'error');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
 }
 
 function reloadHistory(idx) {
@@ -1995,6 +2194,92 @@ function loadHistory(idx) {
   const data = poHistory[idx];
   applyPreviewHTML(buildPoHTML(data)); // ← 헬퍼 사용
   switchTab('preview');
+  closeHistDetail();
+}
+
+// ════════════════════════════════════════
+// 내역 상세 모달
+// ════════════════════════════════════════
+function openHistDetail(idx) {
+  const h = poHistory[idx];
+  if (!h) return;
+  _hdIdx = idx;
+
+  // 제목
+  document.getElementById('hd-po-num').textContent = h.poNum;
+  document.getElementById('hd-status-badge').innerHTML = statusBadge(h.status || 'ordered');
+
+  // 상태 버튼 하이라이트
+  const cur = h.status || 'ordered';
+  document.querySelectorAll('.hd-status-btn').forEach(btn => {
+    btn.style.fontWeight = btn.dataset.s === cur ? '900' : '400';
+    btn.style.boxShadow = btn.dataset.s === cur ? '0 0 0 2px currentColor' : 'none';
+  });
+
+  // 메모
+  document.getElementById('hd-memo').value = h.hdMemo || '';
+
+  // 요약 정보
+  const items = h.items.map(it => `• ${it.name} ${it.spec ? '(' + it.spec + ')' : ''} &times;${it.qty}${it.unit}`).join('<br>');
+  document.getElementById('hd-summary').innerHTML = `
+    <div style="margin-bottom:6px;"><b>공급업체</b>: ${h.supplier.name}</div>
+    <div style="margin-bottom:6px;"><b>수취인</b>: ${h.ship.name} ${h.ship.tel ? '(' + h.ship.tel + ')' : ''}</div>
+    <div style="margin-bottom:6px;"><b>배송</b>: ${h.ship.type} &middot; ${h.deadline}</div>
+    <div style="margin-bottom:6px;"><b>품목</b>:<br>${items}</div>
+    ${h.memo ? '<div><b>메모</b>: ' + h.memo + '</div>' : ''}
+  `;
+
+  document.getElementById('hist-detail-modal').classList.add('show');
+}
+
+function closeHistDetail() {
+  document.getElementById('hist-detail-modal').classList.remove('show');
+}
+
+function setHistStatus(idx, status) {
+  if (!poHistory[idx]) return;
+  poHistory[idx].status = status;
+  lsSave('zytn_po_history', poHistory);
+  // 모달 배지 업데이트
+  document.getElementById('hd-status-badge').innerHTML = statusBadge(status);
+  document.querySelectorAll('.hd-status-btn').forEach(btn => {
+    btn.style.fontWeight = btn.dataset.s === status ? '900' : '400';
+    btn.style.boxShadow = btn.dataset.s === status ? '0 0 0 2px currentColor' : 'none';
+  });
+  renderHistory();
+  showToast('✅ 상태 변경 완료', 'success');
+}
+
+function saveHistMemo() {
+  if (_hdIdx < 0 || !poHistory[_hdIdx]) return;
+  poHistory[_hdIdx].hdMemo = document.getElementById('hd-memo').value.trim();
+  lsSave('zytn_po_history', poHistory);
+  renderHistory();
+  showToast('✅ 메모 저장 완료', 'success');
+}
+
+function saveHistPng(idx) {
+  const h = poHistory[idx];
+  if (!h) return;
+  closeHistDetail();
+  // 숨겨진 렌더에 HTML 생성 후 캐스
+  const wrapper = document.getElementById('preview-wrapper');
+  wrapper.innerHTML = buildPoHTML(h);
+  const doc = wrapper.querySelector('.po-doc');
+  if (!doc) return;
+  captureDoc(doc)
+    .then(dataURL => {
+      const a = document.createElement('a');
+      a.href = dataURL;
+      a.download = `${h.poNum}.png`;
+      a.click();
+      wrapper.innerHTML = '';
+      showToast('✅ PNG 저장 완료', 'success');
+    })
+    .catch(() => {
+      wrapper.innerHTML = '';
+      showToast('❌ PNG 생성 실패', 'error');
+    });
 }
 
 // ════════════════════════════════════════
@@ -2024,8 +2309,12 @@ function switchTab(name) {
     renderCatalogAngles();
   } else if (name === 'history') {
     bar.innerHTML = `
-      <button class="btn btn-outline" onclick="clearHistory()">🗑 내역 전체 삭제</button>
+      <button class="btn btn-outline" style="flex:1;font-size:12px;" onclick="exportHistory()">&#128228; 내역 백업</button>
+      <button class="btn btn-outline" style="flex:1;font-size:12px;" onclick="document.getElementById('import-history-input').click()">&#128229; 내역 복원</button>
+      <input type="file" id="import-history-input" accept=".json" style="display:none;" onchange="importHistory(this)">
+      <button class="btn btn-outline" style="flex:1;font-size:12px;color:#ff5050;" onclick="clearHistory()">&#128465; 전체삭제</button>
     `;
+    renderHistory();
   } else if (name === 'settings') {
     bar.innerHTML = `
       <button class="btn btn-primary" onclick="saveBuyerSettings()">💾 설정 저장</button>
