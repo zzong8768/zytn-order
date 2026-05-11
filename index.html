@@ -880,8 +880,8 @@ function lsLoad(key, fallback) {
   catch (e) { return fallback; }
 }
 
-/** html2canvas 공통 옵션 */
-const H2C_OPTS = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true };
+/** html2canvas 공통 옵션 - allowTaint:true로 CORS 실패 이미지도 시도 */
+const H2C_OPTS = { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true, imageTimeout: 5000, removeContainer: true };
 const H2C_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 let _h2cLoading = null; // 중복 로드 방지
 
@@ -1715,12 +1715,17 @@ function saveImage() {
   const doc = document.getElementById('po-doc-render');
   if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
   showToast('📸 이미지 저장 중...');
-  // transform 일시 제거 후 캐청
   const prevTransform = doc.style.transform;
   const prevOrigin = doc.style.transformOrigin;
   doc.style.transform = 'none';
   doc.style.transformOrigin = 'top left';
-  loadH2C().then(() => html2canvas(doc, H2C_OPTS))
+
+  function doCapture(opts) {
+    return loadH2C().then(() => html2canvas(doc, opts));
+  }
+
+  // 1차 시도: useCORS + allowTaint
+  doCapture(H2C_OPTS)
     .then(canvas => {
       doc.style.transform = prevTransform;
       doc.style.transformOrigin = prevOrigin;
@@ -1730,11 +1735,26 @@ function saveImage() {
       link.click();
       showToast('✅ 이미지 저장 완료!', 'success');
     })
-    .catch(err => {
-      doc.style.transform = prevTransform;
-      doc.style.transformOrigin = prevOrigin;
-      console.error(err);
-      showToast('저장 오류. 다시 시도해주세요.', 'error');
+    .catch(() => {
+      // 2차 시도: 외부 이미지 제외 (ignoreElements)
+      showToast('🔄 외부 이미지 제외 후 재시도 중...');
+      const opts2 = { ...H2C_OPTS, ignoreElements: el => el.tagName === 'IMG' && el.src && !el.src.startsWith('data:') };
+      doCapture(opts2)
+        .then(canvas => {
+          doc.style.transform = prevTransform;
+          doc.style.transformOrigin = prevOrigin;
+          const link = document.createElement('a');
+          link.download = `발주서_${document.getElementById('po-num').value}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          showToast('✅ 저장 완료 (외부 사진 제외)', 'success');
+        })
+        .catch(err => {
+          doc.style.transform = prevTransform;
+          doc.style.transformOrigin = prevOrigin;
+          console.error(err);
+          showToast('저장 오류. 다시 시도해주세요.', 'error');
+        });
     });
 }
 
@@ -1742,40 +1762,8 @@ function saveImage() {
 // _shareDataUrl, _sharePoNum 전역 변수는 상단에서 선언
 
 function shareImage() {
-  const doc = document.getElementById('po-doc-render');
-  if (!doc) { showToast('먼저 발주서를 생성하세요', 'error'); return; }
-
-  // file:// 환경 또는 Web Share API 미지원 시 모달
-  if (location.protocol === 'file:' || !navigator.share || !navigator.canShare) {
-    openShareModal(); return;
-  }
-  showToast('📤 공유 준비 중...');
-  // transform 일시 제거 후 캐청
-  const prevTransform = doc.style.transform;
-  const prevOrigin = doc.style.transformOrigin;
-  doc.style.transform = 'none';
-  doc.style.transformOrigin = 'top left';
-  loadH2C().then(() => html2canvas(doc, H2C_OPTS))
-    .then(canvas => {
-      doc.style.transform = prevTransform;
-      doc.style.transformOrigin = prevOrigin;
-      const dataURL = canvas.toDataURL('image/png');
-      fetch(dataURL).then(r => r.blob()).then(async blob => {
-        const poNum = document.getElementById('po-num').value;
-        const file = new File([blob], `발주서_${poNum}.png`, { type: 'image/png' });
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ title: `발주서 ${poNum}`, text: `ZYTN 발주서 ${poNum}`, files: [file] });
-            showToast('✅ 공유 완료!', 'success');
-          } catch (e) { if (e.name !== 'AbortError') openShareModal(); }
-        } else { openShareModal(); }
-      });
-    })
-    .catch(() => {
-      doc.style.transform = prevTransform;
-      doc.style.transformOrigin = prevOrigin;
-      openShareModal();
-    });
+  // 모든 환경에서 모달로 통일 (이미지 캐치는 모달 내부에서만 처리)
+  openShareModal();
 }
 
 // 환경 정보 캐시
@@ -1873,23 +1861,37 @@ function openShareModal() {
   doc.style.transform = 'none';
   doc.style.transformOrigin = 'top left';
 
+  function applyCapture(canvas) {
+    doc.style.transform = prevTransform;
+    doc.style.transformOrigin = prevOrigin;
+    const dataURL = canvas.toDataURL('image/png');
+    _shareDataUrl = dataURL;
+    prevImg.src = dataURL;
+    prevImg.style.display = 'block';
+    if (loadingSpan) loadingSpan.style.display = 'none';
+    document.getElementById('share-status').textContent = '';
+    renderShareButtons();
+  }
+
+  // 1차 시도: 일반 캡처
   loadH2C().then(() => html2canvas(doc, H2C_OPTS))
-    .then(canvas => {
-      doc.style.transform = prevTransform;
-      doc.style.transformOrigin = prevOrigin;
-      const dataURL = canvas.toDataURL('image/png');
-      _shareDataUrl = dataURL;
-      prevImg.src = dataURL;
-      if (loadingSpan) loadingSpan.style.display = 'none';
-      document.getElementById('share-status').textContent = '';
-      // 이미지 완성 후 버튼 재렌더 (텍스트 업데이트 없음)
-    })
-    .catch(err => {
-      doc.style.transform = prevTransform;
-      doc.style.transformOrigin = prevOrigin;
-      if (loadingSpan) loadingSpan.style.display = 'none';
-      console.error('[openShareModal] 캐스 실패:', err);
-      document.getElementById('share-status').textContent = '⚠️ 이미지 생성 실패. PNG 저장은 정상 작동합니다.';
+    .then(applyCapture)
+    .catch(() => {
+      // 2차 시도: 외부 이미지 제외
+      const opts2 = { ...H2C_OPTS, ignoreElements: el => el.tagName === 'IMG' && el.src && !el.src.startsWith('data:') };
+      loadH2C().then(() => html2canvas(doc, opts2))
+        .then(canvas => {
+          applyCapture(canvas);
+          document.getElementById('share-status').textContent = '⚠️ 외부 이미지 제외 후 캡처됨 (catalog 사진 미포함)';
+        })
+        .catch(err => {
+          doc.style.transform = prevTransform;
+          doc.style.transformOrigin = prevOrigin;
+          if (loadingSpan) loadingSpan.style.display = 'none';
+          console.error('[openShareModal] 캡처 실패:', err);
+          document.getElementById('share-status').textContent = '⚠️ 이미지 캡처 실패. 버튼은 정상 작동합니다.';
+          renderShareButtons();
+        });
     });
 }
 
