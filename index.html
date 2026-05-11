@@ -935,7 +935,7 @@ function initHistory() {
 
 function tryLoadJsonFile() {
   // HTTP 서버 환경에서 JSON 파일 자동 로드
-  fetch('./품목목록_백업.json')
+  fetch('./catalog.json')
     .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
     .then(data => {
       if (!Array.isArray(data) || !data.length) return;
